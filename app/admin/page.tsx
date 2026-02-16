@@ -5,6 +5,23 @@ import { useCallback, useEffect, useState } from "react";
 
 type FlagRow = { key: string; enabled: boolean; description?: string | null };
 
+/** Dedupe rapid duplicate fetches (e.g. React Strict Mode double-mount). */
+let adminFeaturesFetchInFlight: Promise<{ data: FlagRow[]; forbidden: boolean }> | null = null;
+
+function fetchAdminFeaturesOnce(): Promise<{ data: FlagRow[]; forbidden: boolean }> {
+  if (adminFeaturesFetchInFlight) return adminFeaturesFetchInFlight;
+  adminFeaturesFetchInFlight = fetch("/api/admin/features")
+    .then(async (res) => {
+      const forbidden = res.status === 403;
+      const data = res.ok ? await res.json() : [];
+      return { data, forbidden };
+    })
+    .finally(() => {
+      adminFeaturesFetchInFlight = null;
+    });
+  return adminFeaturesFetchInFlight;
+}
+
 export default function AdminPage() {
   const [flags, setFlags] = useState<FlagRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -14,16 +31,12 @@ export default function AdminPage() {
   const load = useCallback(() => {
     setLoading(true);
     setForbidden(false);
-    fetch("/api/admin/features")
-      .then((res) => {
-        if (res.status === 403) {
-          setForbidden(true);
-          return [];
-        }
-        if (!res.ok) return [];
-        return res.json();
+    fetchAdminFeaturesOnce()
+      .then(({ data, forbidden: isForbidden }) => {
+        setFlags(data);
+        setForbidden(isForbidden);
       })
-      .then(setFlags)
+      .catch(() => setFlags([]))
       .finally(() => setLoading(false));
   }, []);
 
@@ -75,20 +88,11 @@ export default function AdminPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-6 flex items-center gap-4">
-        <Link href="/dashboard" className="text-sm text-gray-600 underline hover:text-gray-900">
-          ← Dashboard
-        </Link>
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Feature flags</h1>
-        <Link
-          href="/admin/sites"
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Archived sites
-        </Link>
       </div>
       <p className="mb-6 text-sm text-gray-500">
-        Toggle features for the whole app. Changes take effect immediately. Use &quot;Archived sites&quot; to view or delete archived sites.
+        Toggle features for the whole app. Changes take effect immediately. Use &quot;Sites&quot; in the sidebar to view or delete archived sites.
       </p>
       <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-200">

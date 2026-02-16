@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDashboardSupabase } from "@/lib/supabase/server";
-import type { UpdateSiteDraftBody } from "@/lib/types/site";
+import { buildInitialDraftContent, isValidSlug } from "@/lib/templates";
+import type { BusinessType, UpdateSiteDraftBody } from "@/lib/types/site";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function getSiteAndCheckOwner(
@@ -75,12 +76,36 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 422 });
   }
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const currentCountry = body.country !== undefined
+    ? (body.country === "" ? null : body.country)
+    : (site.country ?? null);
+
   if (body.country !== undefined) {
     updates.country = body.country === "" ? null : body.country;
   }
+
+  if (body.languages !== undefined) {
+    const langs = Array.isArray(body.languages) ? body.languages.filter((l) => typeof l === "string" && l.trim()) : [];
+    if (langs.length === 0) {
+      return NextResponse.json(
+        { error: "languages must be a non-empty array of locale codes" },
+        { status: 422 }
+      );
+    }
+    updates.languages = langs;
+    const existing = (site.draft_content ?? {}) as Record<string, Record<string, unknown>>;
+    const defaultContent = buildInitialDraftContent(langs, currentCountry ?? undefined);
+    const newDraft: Record<string, Record<string, unknown>> = {};
+    for (const locale of langs) {
+      const def = defaultContent[locale as keyof typeof defaultContent];
+      newDraft[locale] = existing[locale] ? { ...(def ?? {}), ...existing[locale] } : (def ?? {});
+    }
+    updates.draft_content = newDraft;
+  }
+
   if (body.draft_content !== undefined) {
     const merged: Record<string, Record<string, unknown>> = {
-      ...(site.draft_content as Record<string, Record<string, unknown>>),
+      ...((updates.draft_content ?? site.draft_content) as Record<string, Record<string, unknown>>),
     };
     for (const [locale, localeContent] of Object.entries(body.draft_content)) {
       if (localeContent && typeof localeContent === "object") {
@@ -96,13 +121,13 @@ export async function PATCH(
         merged[locale] = { ...merged[locale], country: countryValue };
       }
       updates.country = countryValue ?? null;
-    } else {
-      const primaryLocale = site.languages?.[0] ?? "en";
+    } else if (!body.languages) {
+      const primaryLocale = (updates.languages as string[])?.[0] ?? site.languages?.[0] ?? "en";
       const fromDraft = merged[primaryLocale]?.country ?? merged.en?.country;
       if (fromDraft !== undefined) updates.country = fromDraft === "" ? null : fromDraft;
     }
     updates.draft_content = merged;
-  } else if (body.country !== undefined) {
+  } else if (body.country !== undefined && body.languages === undefined) {
     const countryValue = body.country === "" ? undefined : body.country;
     const merged: Record<string, Record<string, unknown>> = {
       ...(site.draft_content as Record<string, Record<string, unknown>>),
@@ -112,8 +137,50 @@ export async function PATCH(
     }
     updates.draft_content = merged;
   }
+  const validBusinessTypes: BusinessType[] = [
+    "salon", "clinic", "repair", "tutor", "cafe", "local_service", "other",
+  ];
+  if (body.business_type !== undefined && validBusinessTypes.includes(body.business_type)) {
+    updates.business_type = body.business_type;
+  }
   if (typeof body.archived === "boolean") {
     updates.archived_at = body.archived ? new Date().toISOString() : null;
+  }
+  if (body.slug !== undefined) {
+    if (site.published_at) {
+      return NextResponse.json(
+        { error: "Site name cannot be changed after publishing" },
+        { status: 422 }
+      );
+    }
+    const slug = String(body.slug).trim().toLowerCase().replace(/\s+/g, "-");
+    if (!slug) {
+      return NextResponse.json(
+        { error: "Slug cannot be empty" },
+        { status: 422 }
+      );
+    }
+    if (!isValidSlug(slug)) {
+      return NextResponse.json(
+        { error: "Invalid slug; use lowercase letters, numbers, hyphens only (2–64 characters)" },
+        { status: 422 }
+      );
+    }
+    if (slug !== site.slug) {
+      const { data: existing } = await supabase
+        .from("localed_sites")
+        .select("id")
+        .eq("slug", slug)
+        .neq("id", id)
+        .maybeSingle();
+      if (existing) {
+        return NextResponse.json(
+          { error: "Slug already taken" },
+          { status: 409 }
+        );
+      }
+    }
+    updates.slug = slug;
   }
   const { data: updated, error } = await supabase
     .from("localed_sites")
@@ -122,6 +189,13 @@ export async function PATCH(
     .select()
     .single();
   if (error) {
+    const isSlugConflict =
+      error.code === "23505" &&
+      (error.message?.includes("localed_sites_slug") ||
+        (typeof error.details === "string" && error.details.includes("localed_sites_slug")));
+    if (isSlugConflict) {
+      return NextResponse.json({ error: "Slug already taken" }, { status: 409 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json(updated);

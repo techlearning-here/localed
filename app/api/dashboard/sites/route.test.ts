@@ -122,4 +122,93 @@ describe("POST /api/dashboard/sites (SITES-01)", () => {
     const res = await POST(req);
     expect(res.status).toBe(422);
   });
+
+  it("creates site with optional draft_content when provided", async () => {
+    const customDraft = {
+      en: { businessName: "Custom Name", tagline: "Custom tagline" },
+    };
+    let capturedInsert: Record<string, unknown> = {};
+    const mockFrom = vi.fn((table: string) => {
+      if (table !== "localed_sites") return {};
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({ data: null }),
+          }),
+        }),
+        insert: (payload: Record<string, unknown>) => ({
+          select: () => ({
+            single: () => {
+              capturedInsert = { ...payload };
+              return Promise.resolve({
+                data: { ...payload, id: "new-site-id" },
+              });
+            },
+          }),
+        }),
+      };
+    });
+    vi.mocked(getDashboardSupabase).mockResolvedValue({
+      client: { from: mockFrom } as never,
+      userId: "user-1",
+    });
+    const req = new Request("http://localhost/api/dashboard/sites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        business_type: "salon",
+        slug: "custom-site",
+        languages: ["en"],
+        country: null,
+        draft_content: customDraft,
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    const data = await res.json();
+    expect(data.id).toBe("new-site-id");
+    expect(data.draft_content).toEqual(customDraft);
+    expect(capturedInsert.draft_content).toEqual(customDraft);
+  });
+
+  it("creates site with buildInitialDraftContent when draft_content not provided", async () => {
+    let capturedInsert: Record<string, unknown> = {};
+    const mockFrom = vi.fn((table: string) => {
+      if (table !== "localed_sites") return {};
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({ data: null }),
+          }),
+        }),
+        insert: (payload: Record<string, unknown>) => ({
+          select: () => ({
+            single: () => {
+              capturedInsert = payload;
+              return Promise.resolve({
+                data: { ...payload, id: "new-id" },
+              });
+            },
+          }),
+        }),
+      };
+    });
+    vi.mocked(getDashboardSupabase).mockResolvedValue({
+      client: { from: mockFrom } as never,
+      userId: "user-1",
+    });
+    const req = new Request("http://localhost/api/dashboard/sites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        business_type: "other",
+        slug: "my-site",
+        languages: ["en"],
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    expect(capturedInsert.draft_content).toBeDefined();
+    expect((capturedInsert.draft_content as Record<string, unknown>).en).toBeDefined();
+  });
 });

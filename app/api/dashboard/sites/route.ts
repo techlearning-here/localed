@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       { status: 422 }
     );
   }
-  const { business_type, slug, languages } = body;
+  const { business_type, slug, languages, country, draft_content: bodyDraft } = body;
   if (
     !business_type ||
     !slug ||
@@ -59,7 +59,10 @@ export async function POST(request: NextRequest) {
       { status: 422 }
     );
   }
-  const draft_content = buildInitialDraftContent(languages);
+  const draft_content =
+    bodyDraft && typeof bodyDraft === "object"
+      ? bodyDraft
+      : buildInitialDraftContent(languages, country);
   const template_id = "default";
   const plan = "free";
 
@@ -75,23 +78,35 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const insertPayload: Record<string, unknown> = {
+    owner_id: ownerId,
+    slug,
+    business_type,
+    template_id,
+    plan,
+    languages,
+    draft_content,
+    published_content: null,
+    published_at: null,
+  };
+  if (country != null && String(country).trim() !== "") {
+    insertPayload.country = String(country).trim();
+  }
+
   const { data: site, error } = await supabase
     .from("localed_sites")
-    .insert({
-      owner_id: ownerId,
-      slug,
-      business_type,
-      template_id,
-      plan,
-      languages,
-      draft_content,
-      published_content: null,
-      published_at: null,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
   if (error) {
+    const isSlugConflict =
+      error.code === "23505" &&
+      (error.message?.includes("localed_sites_slug") ||
+        (typeof error.details === "string" && error.details.includes("localed_sites_slug")));
+    if (isSlugConflict) {
+      return NextResponse.json({ error: "Slug already taken" }, { status: 409 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json(site, { status: 201 });

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { LocaledSite } from "@/lib/types/site";
+import { useDashboardFeatures } from "./features-context";
 
 type FilterKind = "all" | "active" | "archived";
 
@@ -12,22 +13,34 @@ function filterSites(sites: LocaledSite[], filter: FilterKind): LocaledSite[] {
   return sites;
 }
 
-type FeatureFlags = Record<string, boolean>;
+/** Dedupe rapid duplicate fetches (e.g. React Strict Mode double-mount). */
+let sitesFetchInFlight: Promise<LocaledSite[]> | null = null;
+
+function fetchSitesOnce(): Promise<LocaledSite[]> {
+  if (sitesFetchInFlight) return sitesFetchInFlight;
+  sitesFetchInFlight = fetch("/api/dashboard/sites")
+    .then((res) => {
+      if (!res.ok) throw new Error(res.status === 401 ? "Not authorized" : "Failed to load");
+      return res.json();
+    })
+    .finally(() => {
+      sitesFetchInFlight = null;
+    });
+  return sitesFetchInFlight;
+}
 
 export default function DashboardPage() {
   const [sites, setSites] = useState<LocaledSite[]>([]);
   const [filter, setFilter] = useState<FilterKind>("all");
-  const [flags, setFlags] = useState<FeatureFlags>({});
+  const flags = useDashboardFeatures();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [archivingId, setArchivingId] = useState<string | null>(null);
 
   const loadSites = useCallback(() => {
-    fetch("/api/dashboard/sites")
-      .then((res) => {
-        if (!res.ok) throw new Error(res.status === 401 ? "Not authorized" : "Failed to load");
-        return res.json();
-      })
+    setLoading(true);
+    setError(null);
+    fetchSitesOnce()
       .then(setSites)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -36,13 +49,6 @@ export default function DashboardPage() {
   useEffect(() => {
     loadSites();
   }, [loadSites]);
-
-  useEffect(() => {
-    fetch("/api/features")
-      .then((res) => (res.ok ? res.json() : {}))
-      .then(setFlags)
-      .catch(() => setFlags({}));
-  }, []);
 
   async function setArchive(siteId: string, archived: boolean) {
     setArchivingId(siteId);
@@ -81,29 +87,15 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">My sites</h1>
-        <div className="flex gap-2">
-          <Link
-            href="/admin"
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Admin
-          </Link>
-          <Link
-            href="/dashboard/sites/new"
-            className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-          >
-            Create site
-          </Link>
-        </div>
       </div>
 
       {sites.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center">
           <p className="text-gray-600">You don’t have any sites yet.</p>
           <Link
-            href="/dashboard/sites/new"
+            href="/dashboard/sites/new/edit"
             className="mt-4 inline-block rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
           >
             Create your first site
@@ -146,18 +138,27 @@ export default function DashboardPage() {
                         <p className="font-medium text-gray-900">{name}</p>
                         <p className="text-sm text-gray-500">
                           /{site.slug}
-                          {site.published_at ? (
+                          {site.published_at && !isArchived ? (
                             <span className="ml-2 text-green-600">Published</span>
+                          ) : isArchived ? (
+                            <span className="ml-2 text-amber-600">Unpublished</span>
                           ) : (
                             <span className="ml-2 text-amber-600">Draft</span>
-                          )}
-                          {flags.archive !== false && isArchived && (
-                            <span className="ml-2 text-gray-500">Archived</span>
                           )}
                         </p>
                       </div>
                     </Link>
-                    <span className="text-gray-400">
+                    <span className="flex shrink-0 items-center gap-2 text-gray-400">
+                      {site.published_at && !site.archived_at && (
+                        <a
+                          href={`/${site.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-gray-600 hover:text-gray-900"
+                        >
+                          View site
+                        </a>
+                      )}
                       <Link
                         href={`/dashboard/sites/${site.id}/edit`}
                         className="hover:text-gray-600"

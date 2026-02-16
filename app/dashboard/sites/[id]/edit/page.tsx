@@ -3,17 +3,33 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import type { LocaledSite } from "@/lib/types/site";
+import type { BusinessType, LocaledSite } from "@/lib/types/site";
 import { TIMEZONE_OPTIONS } from "@/lib/timezones";
 import { COUNTRY_OPTIONS } from "@/lib/countries";
+import { DEFAULT_LANGUAGE, getLanguagesForCountry } from "@/lib/languages";
+import { useDashboardFeatures } from "@/app/dashboard/features-context";
 import { QRCodeSection } from "./qr-code-section";
 
+/** Base URL for the app; published site and QR code use this + site slug (user’s site name). */
 const BASE_URL =
   typeof window !== "undefined"
     ? window.location.origin
     : process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+/** When set (e.g. https://localed.info), published link and QR code use this so they always point to the canonical domain. */
+const PUBLIC_SITE_BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || BASE_URL;
+
+const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
+  { value: "salon", label: "Salon / Beauty" },
+  { value: "clinic", label: "Clinic / Health" },
+  { value: "repair", label: "Repair / Workshop" },
+  { value: "tutor", label: "Tutor / Coach" },
+  { value: "cafe", label: "Cafe / Restaurant" },
+  { value: "local_service", label: "Local service" },
+  { value: "other", label: "Other" },
+];
 
 const WIZARD_STEPS = [
+  { id: "site_settings", label: "Site settings" },
   { id: "basic", label: "Basic info" },
   { id: "contact", label: "Contact" },
   { id: "hours", label: "Business hours" },
@@ -31,13 +47,20 @@ export default function EditSitePage() {
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
   const [archiving, setArchiving] = useState(false);
-  const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [currentStep, setCurrentStep] = useState(0);
+  const [siteLanguages, setSiteLanguages] = useState<string[]>([]);
+  const [businessType, setBusinessType] = useState<BusinessType>("other");
+  const [slugProposed, setSlugProposed] = useState("");
+  const [slugAvailability, setSlugAvailability] = useState<{ available: boolean; message: string } | null>(null);
+  const [checkingSlug, setCheckingSlug] = useState(false);
 
+  const flags = useDashboardFeatures();
   const [form, setForm] = useState<Record<string, string>>({});
   const totalSteps = WIZARD_STEPS.length;
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === totalSteps - 1;
+
+  const isCreateMode = id === "new";
 
   const loadSite = useCallback(async () => {
     const res = await fetch(`/api/dashboard/sites/${id}`);
@@ -53,6 +76,10 @@ export default function EditSitePage() {
     }
     const data: LocaledSite = await res.json();
     setSite(data);
+    setSlugProposed(data.slug ?? "");
+    setSlugAvailability(null);
+    setBusinessType((data.business_type as BusinessType) ?? "other");
+    setSiteLanguages(data.languages?.length ? [...data.languages] : [DEFAULT_LANGUAGE]);
     const locale = data.languages?.[0] ?? "en";
     const content = (data.draft_content?.[locale] ?? data.draft_content?.en ?? {}) as Record<string, string>;
     setForm({
@@ -81,36 +108,174 @@ export default function EditSitePage() {
   }, [id]);
 
   useEffect(() => {
+    if (isCreateMode) {
+      setLoading(false);
+      return;
+    }
     loadSite();
-  }, [loadSite]);
+  }, [isCreateMode, loadSite]);
 
   useEffect(() => {
-    fetch("/api/features")
-      .then((res) => (res.ok ? res.json() : {}))
-      .then(setFlags)
-      .catch(() => setFlags({}));
-  }, []);
+    if (!site && !isCreateMode) return;
+    const countryCode = form.country ?? site?.country ?? "";
+    const options = getLanguagesForCountry(countryCode);
+    const allowed = new Set(options.map((l) => l.value));
+    setSiteLanguages((prev) => {
+      const kept = prev.filter((l) => allowed.has(l));
+      return kept.length > 0 ? kept : [DEFAULT_LANGUAGE];
+    });
+  }, [form.country, site?.id]);
+
+  const primaryLocale = siteLanguages[0] ?? site?.languages?.[0] ?? "en";
+  const languageOptionsForCountry = getLanguagesForCountry(form.country ?? site?.country ?? "");
+
+  function addSiteLanguage(lang: string) {
+    if (lang && !siteLanguages.includes(lang)) {
+      setSiteLanguages((prev) => [...prev, lang].sort((a, b) => {
+        const ia = languageOptionsForCountry.findIndex((l) => l.value === a);
+        const ib = languageOptionsForCountry.findIndex((l) => l.value === b);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      }));
+    }
+  }
+
+  function removeSiteLanguage(lang: string) {
+    if (lang !== primaryLocale && siteLanguages.length > 1) {
+      setSiteLanguages((prev) => prev.filter((l) => l !== lang));
+    }
+  }
+
+  function normalizedSlugProposed(): string {
+    return slugProposed.trim().toLowerCase().replace(/\s+/g, "-");
+  }
+
+  async function checkSlugAvailability() {
+    const slug = normalizedSlugProposed();
+    if (!slug) {
+      setSlugAvailability({ available: false, message: "Enter a site name" });
+      return;
+    }
+    setCheckingSlug(true);
+    setSlugAvailability(null);
+    try {
+      const url = isCreateMode
+        ? `/api/dashboard/sites/check-availability?slug=${encodeURIComponent(slug)}`
+        : `/api/dashboard/sites/check-availability?slug=${encodeURIComponent(slug)}&excludeSiteId=${encodeURIComponent(id)}`;
+      const res = await fetch(url);
+      const data = await res.json().catch(() => ({}));
+      const available = data.available === true;
+      setSlugAvailability({
+        available,
+        message: data.message ?? (available ? "Available" : "This name is taken"),
+      });
+      if (available && !isCreateMode && site && slug !== site.slug) {
+        const patchRes = await fetch(`/api/dashboard/sites/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug }),
+        });
+        if (patchRes.ok) {
+          const updated: LocaledSite = await patchRes.json();
+          setSite(updated);
+          setSlugProposed(updated.slug ?? slug);
+        }
+      }
+    } catch {
+      setSlugAvailability({ available: false, message: "Could not check" });
+    } finally {
+      setCheckingSlug(false);
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!site) return;
     setSaving(true);
     setSaveStatus("idle");
-    const locale = site.languages?.[0] ?? "en";
-    const base = {
-      ...((site.draft_content?.[locale] ?? site.draft_content?.en ?? {}) as Record<string, unknown>),
-      ...form,
-    };
+    const locale = primaryLocale;
     const galleryUrls = (form.galleryUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
     const youtubeUrls = (form.youtubeUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
-    const draft_content = {
+    const base = site
+      ? {
+          ...((site.draft_content?.[locale] ?? site.draft_content?.en ?? {}) as Record<string, unknown>),
+          ...form,
+        }
+      : { ...form };
+    const draftContentForPayload = {
       [locale]: { ...base, galleryUrls, youtubeUrls },
     };
+
+    if (isCreateMode) {
+      const slug = slugProposed.trim().toLowerCase().replace(/\s+/g, "-");
+      if (!slug) {
+        setError("Enter a site name and check availability before saving.");
+        setSaving(false);
+        return;
+      }
+      if (slugAvailability?.available !== true) {
+        setError("Please check that the site name is available before saving.");
+        setSaving(false);
+        return;
+      }
+      try {
+        const res = await fetch("/api/dashboard/sites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            business_type: businessType,
+            slug,
+            languages: siteLanguages.length ? siteLanguages : [DEFAULT_LANGUAGE],
+            country: form.country || null,
+            draft_content: draftContentForPayload,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.id) {
+          setSaveStatus("error");
+          setError(
+            res.status === 409
+              ? "That site name was taken. Choose another and check availability."
+              : data.error ?? "Failed to create site"
+          );
+          setSaving(false);
+          return;
+        }
+        setError(null);
+        router.replace(`/dashboard/sites/${data.id}/edit`);
+      } catch {
+        setSaveStatus("error");
+        setError("Network error");
+      }
+      setSaving(false);
+      return;
+    }
+
+    if (!site) return;
+    const payload: {
+      draft_content: Record<string, unknown>;
+      country?: string | null;
+      languages?: string[];
+      business_type?: BusinessType;
+      slug?: string;
+    } = {
+      draft_content: draftContentForPayload,
+      country: form.country ?? null,
+      languages: siteLanguages.length ? siteLanguages : [DEFAULT_LANGUAGE],
+      business_type: businessType,
+    };
+    const slugStepIndex = WIZARD_STEPS.findIndex((s) => s.id === "site_settings");
+    if (
+      slugStepIndex >= 0 &&
+      currentStep === slugStepIndex &&
+      slugProposed.trim() &&
+      !site.published_at
+    ) {
+      payload.slug = slugProposed.trim().toLowerCase().replace(/\s+/g, "-");
+    }
     try {
       const res = await fetch(`/api/dashboard/sites/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft_content }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -121,6 +286,9 @@ export default function EditSitePage() {
       }
       const updated: LocaledSite = await res.json();
       setSite(updated);
+      setSlugProposed(updated.slug ?? slugProposed);
+      setBusinessType((updated.business_type as BusinessType) ?? "other");
+      setSiteLanguages(updated.languages?.length ? [...updated.languages] : [DEFAULT_LANGUAGE]);
       setSaveStatus("saved");
       setError(null);
     } catch {
@@ -131,13 +299,65 @@ export default function EditSitePage() {
   }
 
   function openPreview() {
-    window.open(`/dashboard/sites/${id}/preview`, "_blank", "noopener");
+    window.open(
+      `/dashboard/sites/${id}/preview`,
+      "_blank",
+      "noopener,noreferrer,width=1024,height=768"
+    );
   }
 
   async function handlePublish() {
-    if (!site) return;
     setPublishing(true);
     setError(null);
+    if (isCreateMode) {
+      const slug = slugProposed.trim().toLowerCase().replace(/\s+/g, "-");
+      if (!slug || slugAvailability?.available !== true) {
+        setError("Enter a site name and check availability before publishing.");
+        setPublishing(false);
+        return;
+      }
+      const locale = primaryLocale;
+      const galleryUrls = (form.galleryUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+      const youtubeUrls = (form.youtubeUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+      const draftContentForPayload = {
+        [locale]: { ...form, galleryUrls, youtubeUrls },
+      };
+      try {
+        const createRes = await fetch("/api/dashboard/sites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            business_type: businessType,
+            slug,
+            languages: siteLanguages.length ? siteLanguages : [DEFAULT_LANGUAGE],
+            country: form.country || null,
+            draft_content: draftContentForPayload,
+          }),
+        });
+        const createData = await createRes.json().catch(() => ({}));
+        if (!createData.id) {
+          setError(
+            createRes.status === 409
+              ? "That site name was taken."
+              : createData.error ?? "Failed to create site"
+          );
+          setPublishing(false);
+          return;
+        }
+        const pubRes = await fetch(`/api/dashboard/sites/${createData.id}/publish`, {
+          method: "POST",
+        });
+        if (!pubRes.ok) {
+          setError("Site created but publish failed. You can publish from the editor.");
+        }
+        router.replace(`/dashboard/sites/${createData.id}/edit`);
+      } catch {
+        setError("Network error");
+      }
+      setPublishing(false);
+      return;
+    }
+    if (!site) return;
     try {
       const res = await fetch(`/api/dashboard/sites/${id}/publish`, {
         method: "POST",
@@ -185,7 +405,7 @@ export default function EditSitePage() {
     return <p className="text-gray-500">Loading…</p>;
   }
 
-  if (error && !site) {
+  if (error && !site && !isCreateMode) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
         <p>{error}</p>
@@ -196,9 +416,7 @@ export default function EditSitePage() {
     );
   }
 
-  if (!site) return null;
-
-  const locale = site.languages?.[0] ?? "en";
+  const locale = site?.languages?.[0] ?? primaryLocale;
 
   return (
     <div>
@@ -210,33 +428,38 @@ export default function EditSitePage() {
       </Link>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold text-gray-900">Edit site</h1>
-        <span className="rounded bg-gray-200 px-2 py-0.5 text-sm text-gray-600">
-          /{site.slug}
+        <h1 className="text-2xl font-bold text-gray-900">
+          {isCreateMode ? "Create site" : "Edit site"}
+        </h1>
+        <span className="rounded bg-gray-200 px-2 py-0.5 text-sm text-gray-600 font-mono">
+          /{site ? site.slug : (slugProposed.trim() ? normalizedSlugProposed() : "your-name")}
         </span>
-        {site.published_at ? (
-          <span className="rounded bg-green-100 px-2 py-0.5 text-sm text-green-800">
-            Published
-          </span>
-        ) : (
-          <span className="rounded bg-amber-100 px-2 py-0.5 text-sm text-amber-800">
-            Draft
-          </span>
-        )}
-        {flags.archive !== false && site.archived_at ? (
-          <span className="rounded bg-gray-200 px-2 py-0.5 text-sm text-gray-700">
-            Archived
-          </span>
-        ) : null}
-        {flags.archive !== false && (
-        <button
-          type="button"
-          onClick={handleArchiveToggle}
-          disabled={archiving}
-          className="ml-2 text-sm text-gray-600 underline hover:text-gray-900 disabled:opacity-50"
-        >
-          {site.archived_at ? "Unarchive site" : "Archive site"}
-        </button>
+        {!isCreateMode && site && (
+          <>
+            {site.published_at && !site.archived_at ? (
+              <span className="rounded bg-green-100 px-2 py-0.5 text-sm text-green-800">
+                Published
+              </span>
+            ) : site.archived_at ? (
+              <span className="rounded bg-amber-100 px-2 py-0.5 text-sm text-amber-800">
+                Unpublished
+              </span>
+            ) : (
+              <span className="rounded bg-amber-100 px-2 py-0.5 text-sm text-amber-800">
+                Draft
+              </span>
+            )}
+            {flags.archive !== false && (
+              <button
+                type="button"
+                onClick={handleArchiveToggle}
+                disabled={archiving}
+                className="ml-2 text-sm text-gray-600 underline hover:text-gray-900 disabled:opacity-50"
+              >
+                {site.archived_at ? "Unarchive site" : "Archive site"}
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -296,8 +519,166 @@ export default function EditSitePage() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        {/* Step 1: Basic info */}
+        {/* Step 0: Site settings — site name, country, business type, languages */}
         {currentStep === 0 && (
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-medium text-gray-900">Site settings</h2>
+            <p className="mb-4 text-sm text-gray-500">
+              Change country, business type, or site languages here. These affect language options and how your site is categorized.
+            </p>
+
+            <div className="mb-6 space-y-2">
+              <label htmlFor="site-slug" className="block text-sm font-medium text-gray-700">
+                Site name (URL)
+              </label>
+              <p className="text-xs text-gray-500">
+                Your site will be at localed.info/
+                <strong className="font-mono">{slugProposed.trim() ? normalizedSlugProposed() : "your-name"}</strong>
+              </p>
+              {!isCreateMode && site?.published_at ? (
+                <input
+                  type="text"
+                  id="site-slug"
+                  value={slugProposed}
+                  readOnly
+                  disabled
+                  className="rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-gray-700 cursor-not-allowed"
+                  aria-label="Site name (read-only after publishing)"
+                />
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      id="site-slug"
+                      value={slugProposed}
+                      onChange={(e) => {
+                        setSlugProposed(e.target.value);
+                        setSlugAvailability(null);
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), checkSlugAvailability())}
+                      placeholder="e.g. joes-salon"
+                      className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                      aria-label="Site name (URL slug)"
+                    />
+                    <button
+                      type="button"
+                      onClick={checkSlugAvailability}
+                      disabled={checkingSlug || !slugProposed.trim()}
+                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {checkingSlug ? "Checking…" : "Check availability"}
+                    </button>
+                    {slugAvailability && (
+                      <span
+                        className={`text-sm font-medium ${slugAvailability.available ? "text-green-700" : "text-amber-700"}`}
+                        role="status"
+                      >
+                        {slugAvailability.message}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Use only lowercase letters, numbers, and hyphens. When the name is available, it is applied automatically.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="site-business-type" className="block text-sm font-medium text-gray-700">
+                  Business type
+                </label>
+                <select
+                  id="site-business-type"
+                  value={businessType}
+                  onChange={(e) => setBusinessType(e.target.value as BusinessType)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                >
+                  {BUSINESS_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="site-country" className="block text-sm font-medium text-gray-700">
+                  Country
+                </label>
+                <select
+                  id="site-country"
+                  value={form.country ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                >
+                  {COUNTRY_OPTIONS.map((opt) => (
+                    <option key={opt.value || "empty"} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Site languages
+                </label>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Languages your site supports. First language is the default. Click Save to apply changes.
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {siteLanguages.map((code) => {
+                    const meta = languageOptionsForCountry.find((l) => l.value === code);
+                    const label = meta?.label ?? code;
+                    const isPrimary = code === primaryLocale;
+                    return (
+                      <span
+                        key={code}
+                        className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-800"
+                      >
+                        {label}
+                        {isPrimary && <span className="text-xs text-gray-500">(default)</span>}
+                        {!isPrimary && siteLanguages.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeSiteLanguage(code)}
+                            className="ml-0.5 rounded-full p-0.5 hover:bg-gray-200"
+                            aria-label={`Remove ${label}`}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </span>
+                    );
+                  })}
+                  {languageOptionsForCountry.filter((l) => !siteLanguages.includes(l.value)).length > 0 && (
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v) addSiteLanguage(v);
+                        e.target.value = "";
+                      }}
+                      className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
+                      aria-label="Add language"
+                    >
+                      <option value="">+ Add language</option>
+                      {languageOptionsForCountry.filter((l) => !siteLanguages.includes(l.value)).map((l) => (
+                        <option key={l.value} value={l.value}>
+                          {l.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 1: Basic info */}
+        {currentStep === 1 && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-medium text-gray-900">Basic info</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -403,7 +784,7 @@ export default function EditSitePage() {
         )}
 
         {/* Step 2: Contact */}
-        {currentStep === 1 && (
+        {currentStep === 2 && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-medium text-gray-900">Contact</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -489,7 +870,7 @@ export default function EditSitePage() {
         )}
 
         {/* Step 3: Business hours */}
-        {currentStep === 2 && (
+        {currentStep === 3 && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-medium text-gray-900">Business hours</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -539,7 +920,7 @@ export default function EditSitePage() {
         )}
 
         {/* Step 4: Media */}
-        {currentStep === 3 && (
+        {currentStep === 4 && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-medium text-gray-900">Media</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -619,24 +1000,26 @@ export default function EditSitePage() {
             {saveStatus === "saved" && (
               <span className="text-sm text-green-600">Saved</span>
             )}
-            <button
-              type="button"
-              onClick={openPreview}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Preview
-            </button>
+            {!isCreateMode && (
+              <button
+                type="button"
+                onClick={openPreview}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Preview
+              </button>
+            )}
             <button
               type="button"
               onClick={handlePublish}
               disabled={publishing}
               className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
             >
-              {publishing ? "Publishing…" : "Publish"}
+              {publishing ? "Publishing…" : isCreateMode ? "Save and publish" : "Publish"}
             </button>
-            {site.published_at && (
+            {site?.published_at && (
               <a
-                href={`${BASE_URL}/${site.slug}`}
+                href={`${PUBLIC_SITE_BASE}/${site.slug}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-gray-600 underline hover:text-gray-900"
@@ -648,13 +1031,17 @@ export default function EditSitePage() {
         </div>
       </form>
 
-      {site.published_at && (
+      {site?.published_at && (
         <div className="mt-8">
-          <QRCodeSection slug={site.slug} siteUrl={`${BASE_URL}/${site.slug}`} />
+          <QRCodeSection
+            slug={site.slug}
+            siteUrl={`${PUBLIC_SITE_BASE}/${site.slug}`}
+            hint="The link and QR code use the site name you set in the Site name step."
+          />
         </div>
       )}
 
-      {!site.published_at && (
+      {(!site || !site.published_at) && (
         <p className="mt-6 text-sm text-gray-500">
           Publish your site to get a public link and QR code.
         </p>

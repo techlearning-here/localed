@@ -76,12 +76,22 @@ export type CreateSiteBody = {
   business_type: BusinessType;
   slug: string;
   languages: string[];
+  /** Optional; stored on site and pre-fills editor so we don't ask again */
+  country?: string | null;
+  /** Optional; when provided (e.g. from wizard) used instead of buildInitialDraftContent */
+  draft_content?: SiteContent;
 };
 
 export type UpdateSiteDraftBody = {
   draft_content?: Partial<SiteContent>;
   /** Site-level country (ISO 3166-1 alpha-2); stored in DB and synced into draft_content */
   country?: string | null;
+  /** Site languages; when provided, draft_content is adjusted (new locales get default content, removed ones dropped) */
+  languages?: string[];
+  /** Business type (salon, clinic, etc.); stored on site row */
+  business_type?: BusinessType;
   /** Set true to archive the site, false to unarchive */
   archived?: boolean;
+  /** Site URL slug (localed.info/{slug}); validated and must be unique */
+  slug?: string;
 };

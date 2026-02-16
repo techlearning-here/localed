@@ -3,12 +3,12 @@
 import { useCallback, useRef, useState } from "react";
 import QRCode from "qrcode";
 
-type Props = { slug: string; siteUrl: string };
+type Props = { slug: string; siteUrl: string; hint?: string };
 
 /**
- * QR-01: Generate and download QR code for published site URL.
+ * QR-01: Generate and download QR code for published site URL (uses the site name/slug the user set).
  */
-export function QRCodeSection({ slug, siteUrl }: Props) {
+export function QRCodeSection({ slug, siteUrl, hint }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [generated, setGenerated] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,8 +43,11 @@ export function QRCodeSection({ slug, siteUrl }: Props) {
         Use this QR code in your shop, on flyers, or in ads. Scanning it opens your site.
       </p>
       <p className="mb-2 text-sm text-gray-500">
-        <strong>URL:</strong> {siteUrl}
+        <strong>URL (your site name):</strong> {siteUrl}
       </p>
+      {hint && (
+        <p className="mb-2 text-xs text-gray-500">{hint}</p>
+      )}
       {error && (
         <p className="mb-2 text-sm text-red-600">{error}</p>
       )}

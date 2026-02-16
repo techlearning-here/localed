@@ -104,4 +104,82 @@ describe("PATCH /api/dashboard/sites/[id] (SITES-04)", () => {
     const data = await res.json();
     expect(data.error).toMatch(/invalid|json/i);
   });
+
+  it("PATCH accepts slug and returns updated site when slug is available", async () => {
+    const updatedSite = { ...mockSite, slug: "new-slug" };
+    const mockFrom = vi.fn(() => ({
+      select: (cols: string) => {
+        if (cols === "*") {
+          return {
+            eq: () => ({
+              single: () => Promise.resolve({ data: mockSite }),
+            }),
+          };
+        }
+        return {
+          eq: () => ({
+            neq: () => ({
+              maybeSingle: () => Promise.resolve({ data: null }),
+            }),
+          }),
+        };
+      },
+      update: (updates: Record<string, unknown>) => ({
+        eq: () => ({
+          select: () => ({
+            single: () =>
+              Promise.resolve({
+                data: { ...mockSite, ...updates, slug: updates.slug ?? mockSite.slug },
+              }),
+          }),
+        }),
+      }),
+    }));
+    vi.mocked(getDashboardSupabase).mockResolvedValue({
+      client: { from: mockFrom } as never,
+      userId: "owner-1",
+    });
+    const req = new Request("http://localhost/api/dashboard/sites/site-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: "new-slug" }),
+    });
+    const res = await PATCH(req, { params: Promise.resolve({ id: "site-1" }) });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.slug).toBe("new-slug");
+  });
+
+  it("PATCH returns 422 for invalid slug", async () => {
+    vi.mocked(getDashboardSupabase).mockResolvedValue({
+      client: mockSupabaseForGetSingle({ data: mockSite as never }) as never,
+      userId: "owner-1",
+    });
+    const req = new Request("http://localhost/api/dashboard/sites/site-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: "a" }),
+    });
+    const res = await PATCH(req, { params: Promise.resolve({ id: "site-1" }) });
+    expect(res.status).toBe(422);
+    const data = await res.json();
+    expect(data.error).toMatch(/slug|invalid/i);
+  });
+
+  it("PATCH returns 422 when changing slug on a published site", async () => {
+    const publishedSite = { ...mockSite, published_at: "2025-01-01T00:00:00Z" };
+    vi.mocked(getDashboardSupabase).mockResolvedValue({
+      client: mockSupabaseForGetSingle({ data: publishedSite as never }) as never,
+      userId: "owner-1",
+    });
+    const req = new Request("http://localhost/api/dashboard/sites/site-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: "new-name" }),
+    });
+    const res = await PATCH(req, { params: Promise.resolve({ id: "site-1" }) });
+    expect(res.status).toBe(422);
+    const data = await res.json();
+    expect(data.error).toMatch(/cannot be changed after publishing/i);
+  });
 });

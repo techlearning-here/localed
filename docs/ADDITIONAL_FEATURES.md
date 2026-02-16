@@ -163,11 +163,21 @@ These four features add strong perceived value and reduce friction; consider for
 
 ---
 
-## 12. Summary: suggested order
+## 12. Design and presentation
+
+| Feature | Description | Value |
+|---------|-------------|--------|
+| **Professional look** | Published sites and default templates must have a professional look: clear layout, readable typography, consistent spacing, and polished UI so local businesses are represented credibly. | Trust; owners and visitors perceive the site as legitimate and well-made. |
+
+*Ongoing: apply to all template and public-site work (MVP and beyond).*
+
+---
+
+## 13. Summary: suggested order
 
 | Phase | Features to consider |
 |-------|----------------------|
-| **v1 / MVP** | Already defined: builder, contact, map, hours, social, QR, appointments (embed), edit later. Add: **new contact form → email to owner**, **new booking → email to owner**. |
+| **v1 / MVP** | Already defined: builder, contact, map, hours, social, QR, appointments (embed), edit later; **professional look** for published sites (see §12). Add: **new contact form → email to owner**, **new booking → email to owner**. |
 | **v1.1** | Visit count (simple), contact form list, **meta + OG image**, share/short link; **WhatsApp:** floating CTA, pre-filled message, share site via WhatsApp, WhatsApp QR download (see [WHATSAPP_FEATURES.md](./WHATSAPP_FEATURES.md)); **hyper-local SEO** (meta tags, map embed, **LocalBusiness JSON-LD**); **“Add to Google” / instant visibility** link or simple integration. |
 | **v2** | Directory, **testimonials** + FAQ, **ask for reviews / QR poster**, custom domain, **multiple staff / workspaces**, weekly digest, **reports / PDF export**, Google reviews; **AI:** suggest copy, translation, SEO meta suggestions, “Improve this”, editor tips, alt text, contact summarization (see [AI_FEATURES.md](./AI_FEATURES.md)); **QR + print bundle** (sticker/standee); deeper GBP integration. |
 | **Later** | Blog/news, events/offers, menu builder, PDF upload, featured listing, premium templates, SMS, cookie consent, accessibility hints. |

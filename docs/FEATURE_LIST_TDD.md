@@ -2,7 +2,13 @@
 
 **TDD-oriented feature list for MVP: Health, Sites, Public site, Contact form, Editor, QR code, then Auth last.**
 
-*Document Version: 1.3*
+*Document Version: 1.4*
+
+---
+
+## Design principle: professional look
+
+Published sites (customer sites at **localed.info/[slug]**) and our templates must present a **professional look**. This applies to layout, typography, spacing, and overall polish so that local businesses are represented credibly. When adding or changing public templates and the published site UI, keep this standard in mind.
 
 ---
 

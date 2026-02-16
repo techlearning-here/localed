@@ -25,11 +25,21 @@ const DEFAULT_LOCALE_CONTENT = {
 
 /**
  * Build initial draft_content from template and selected languages.
+ * Optional country seeds each locale so the editor shows it without asking again.
  */
-export function buildInitialDraftContent(languages: string[]): SiteContent {
+export function buildInitialDraftContent(
+  languages: string[],
+  country?: string | null
+): SiteContent {
+  const countryVal = country != null && String(country).trim() !== "" ? String(country).trim() : "";
   const content: SiteContent = {};
   for (const lang of languages) {
-    content[lang] = { ...DEFAULT_LOCALE_CONTENT, galleryUrls: [], youtubeUrls: [] };
+    content[lang] = {
+      ...DEFAULT_LOCALE_CONTENT,
+      country: countryVal,
+      galleryUrls: [],
+      youtubeUrls: [],
+    };
   }
   return content;
 }

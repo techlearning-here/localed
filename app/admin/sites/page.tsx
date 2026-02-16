@@ -68,12 +68,9 @@ export default function AdminSitesPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-6 flex items-center gap-4">
-        <Link href="/admin" className="text-sm text-gray-600 underline hover:text-gray-900">
-          ← Admin
-        </Link>
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Sites</h1>
-        <div className="flex gap-2">
+        <div className="mt-4 flex gap-2">
           <button
             type="button"
             onClick={() => setArchivedOnly(true)}
@@ -126,10 +123,10 @@ export default function AdminSitesPage() {
                     {site.owner_id.slice(0, 8)}…
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    {site.published_at ? (
-                      <span className={isArchived ? "text-amber-600" : "text-green-600"}>
-                        {isArchived ? "Archived" : "Published"}
-                      </span>
+                    {site.published_at && !isArchived ? (
+                      <span className="text-green-600">Published</span>
+                    ) : isArchived ? (
+                      <span className="text-amber-600">Unpublished</span>
                     ) : (
                       <span className="text-gray-500">Draft</span>
                     )}

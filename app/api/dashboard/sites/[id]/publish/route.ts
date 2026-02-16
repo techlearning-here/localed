@@ -20,7 +20,10 @@ async function getSiteAndCheckOwner(
   return { site: data, error: null };
 }
 
-/** SITES-05: POST /api/dashboard/sites/[id]/publish */
+/**
+ * SITES-05: POST /api/dashboard/sites/[id]/publish
+ * Copies draft to published. Public URL is /{site.slug} (the site name the user set in the editor).
+ */
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
