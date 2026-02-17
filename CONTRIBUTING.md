@@ -25,4 +25,3 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on push and pull r
 - `npm ci` → `npm run test` → `npm run lint` → `npm run build`
 
 A red CI blocks integration. Keep tests green.
-

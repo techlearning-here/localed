@@ -182,14 +182,29 @@ You should see JSON like:
 ```
 
 If any value is `false`, that variable is not set (or is empty) in the Worker environment. Add it under **Settings → Variables and Secrets** and redeploy. This endpoint does not expose secret values. You can remove or restrict `/api/debug-env` later.
+
+**If you added vars but /api/debug-env still shows `false`:**
+
+1. **Use the Worker’s runtime settings, not build settings**  
+   Variables in the **Build configuration** (e.g. Git “Variable name / Variable value”) are often **build-time only**. The Worker at **runtime** needs vars in **Workers & Pages** → your project → **Settings** → **Variables and Secrets** (or **Environment variables**). Add `LOCALED_DEV_OWNER_ID` and `SUPABASE_SERVICE_ROLE_KEY` there (use **Encrypt** for the key).
+
+2. **Production vs Preview**  
+   If the UI has **Production** and **Preview**, add the vars to **Production** (and to Preview if you use preview URLs).
+
+3. **Trigger a new deployment**  
+   After saving Variables and Secrets, run a **new** deploy (e.g. push a commit), not “Rollback”. Rollback reuses an old build and may not pick up new vars.
+
+4. **Deploy from your machine once**  
+   From the project root run: `npm run deploy:cf`. That deploys the Worker and attaches the dashboard Variables and Secrets. Then open `/api/debug-env` again to confirm.
+
 | `nodejs_compat` / compatibility | Keep `compatibility_flags = [ "nodejs_compat" ]` and `compatibility_date` ≥ `2024-09-23` in `wrangler.toml`. |
 | Static assets 404 | Ensure `[assets]` in `wrangler.toml` points to `.open-next/assets` and `binding = "ASSETS"`. |
+| `npm warn deprecated glob` / `node-domexception` | From transitive deps; build still succeeds. |
 
 ### Viewing access logs
 
 - **Real-time:** Dashboard → Workers & Pages → your worker → **Observability** (or Live → Logs), or run `npx wrangler tail` in the project directory.
 - **Stored logs (last ~7 days):** `wrangler.toml` includes `[observability] enabled = true`. After deploy, use **Observability** → **Invocations** / **Events** or **Investigate** (Query Builder) to filter and search.
-| `npm warn deprecated glob@9.3.5` / `node-domexception@1.0.0` | From transitive deps inside `@opennextjs/cloudflare`. Build still succeeds. We use an `overrides` for `glob` in `package.json` to reduce the glob warning; the `node-domexception` warning is from Cloudflare’s formdata-node and can be ignored until upstream updates. |
 
 ---
 
