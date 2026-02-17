@@ -158,6 +158,7 @@ In **Supabase** → **Authentication** → **URL configuration**:
 | Dashboard redirects to login at localhost:8787 | Create `.dev.vars` with `LOCALED_DEV_OWNER_ID`, `SUPABASE_SERVICE_ROLE_KEY`, and Supabase URL/keys. Restart `npm run preview`. |
 | `nodejs_compat` / compatibility | Keep `compatibility_flags = [ "nodejs_compat" ]` and `compatibility_date` ≥ `2024-09-23` in `wrangler.toml`. |
 | Static assets 404 | Ensure `[assets]` in `wrangler.toml` points to `.open-next/assets` and `binding = "ASSETS"`. |
+| `npm warn deprecated glob@9.3.5` / `node-domexception@1.0.0` | From transitive deps inside `@opennextjs/cloudflare`. Build still succeeds. We use an `overrides` for `glob` in `package.json` to reduce the glob warning; the `node-domexception` warning is from Cloudflare’s formdata-node and can be ignored until upstream updates. |
 
 ---
 

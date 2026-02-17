@@ -49,11 +49,13 @@ export default function PreviewSitePage() {
       </div>
       <header className="border-b p-4 flex items-center gap-3">
         {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element -- dynamic user URL
           <img src={logo} alt="" className="h-10 w-auto object-contain" />
         ) : null}
         <h1 className="text-xl font-semibold">{businessName}</h1>
       </header>
       {heroImage ? (
+        // eslint-disable-next-line @next/next/no-img-element -- dynamic user URL
         <img src={heroImage} alt="" className="h-48 w-full object-cover md:h-64" />
       ) : null}
       <div className="p-6">
@@ -112,6 +114,7 @@ export default function PreviewSitePage() {
             <h2 className="text-lg font-medium">Gallery</h2>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {galleryUrls.map((url, i) => (
+                // eslint-disable-next-line @next/next/no-img-element -- dynamic user URL
                 <img key={i} src={url} alt="" className="aspect-square w-full rounded-lg object-cover" />
               ))}
             </div>
