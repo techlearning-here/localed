@@ -74,10 +74,13 @@ npm install @opennextjs/cloudflare@latest
 
 ### Where to set them
 
-- **Local preview** (`npm run preview`): **`.dev.vars`** in the project root. Wrangler loads it for the Worker at http://localhost:8787. Copy from `.env.local` or use `.dev.vars.example` as a template. `.dev.vars` is gitignored.
-- **Local deploy** (`npm run deploy:cf` from your machine): `.dev.vars` or `wrangler secret put <NAME>`.
-- **Cloudflare dashboard**: Workers & Pages → your worker → Settings → Variables and Secrets.
-- **Git/CI**: Build configuration → Variable name / Variable value (and Secrets). All vars must be available at **build** time for Next.js. See [OpenNext env vars](https://opennext.js.org/cloudflare/howtos/env-vars#workers-builds).
+- **Local preview** (`npm run preview`): **`.dev.vars`** in the project root. Wrangler loads it for the Worker at http://localhost:8787. Copy from `.env.local` or use `.dev.vars.example`. **`.dev.vars` is never deployed** — it is only for local preview.
+- **Deployed Worker (Cloudflare):** You must set variables **in the Cloudflare dashboard** so the live Worker can read them at runtime:
+  1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → select your **localed** worker.
+  2. Open **Settings** → **Variables and Secrets**.
+  3. Under **Environment Variables**, add each variable (e.g. `LOCALED_DEV_OWNER_ID`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `LOCALED_ADMIN_IDS`). Use **Encrypt** for secrets.
+  4. Click **Save** and **redeploy** the worker (Deployments → … → Retry deployment or push a new commit) so the new vars are applied.
+- **Git/CI build**: In your build configuration, Variable name / Variable value are used at **build** time (e.g. for `NEXT_PUBLIC_*`). For **runtime** env on the deployed Worker, you still need to set them in the dashboard as above (or in your CI’s “Worker env” / “Secrets” step if it supports that).
 
 ---
 
@@ -156,6 +159,29 @@ In **Supabase** → **Authentication** → **URL configuration**:
 | 500 or runtime errors in production | Check Worker logs; ensure `SUPABASE_SERVICE_ROLE_KEY` and other secrets are set in the Worker environment. |
 | Auth redirect broken | Add the exact deployment URL (and custom domain) to Supabase Redirect URLs and Site URL. |
 | Dashboard redirects to login at localhost:8787 | Create `.dev.vars` with `LOCALED_DEV_OWNER_ID`, `SUPABASE_SERVICE_ROLE_KEY`, and Supabase URL/keys. Restart `npm run preview`. |
+| Dashboard works locally but not after deploy | `.dev.vars` is not deployed. Set the same vars in Cloudflare: Workers & Pages → your worker → **Settings** → **Variables and Secrets**. Then redeploy. Check with **GET /api/debug-env** (see below). |
+
+### Checking if env vars are available on the deployed Worker
+
+After deploy, open in the browser (or with `curl`):
+
+**`https://<your-worker>.<subdomain>.workers.dev/api/debug-env`**
+
+You should see JSON like:
+
+```json
+{
+  "env": {
+    "LOCALED_DEV_OWNER_ID": true,
+    "SUPABASE_SERVICE_ROLE_KEY": true,
+    "NEXT_PUBLIC_SUPABASE_URL": true,
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": true
+  },
+  "dashboardReady": true
+}
+```
+
+If any value is `false`, that variable is not set (or is empty) in the Worker environment. Add it under **Settings → Variables and Secrets** and redeploy. This endpoint does not expose secret values. You can remove or restrict `/api/debug-env` later.
 | `nodejs_compat` / compatibility | Keep `compatibility_flags = [ "nodejs_compat" ]` and `compatibility_date` ≥ `2024-09-23` in `wrangler.toml`. |
 | Static assets 404 | Ensure `[assets]` in `wrangler.toml` points to `.open-next/assets` and `binding = "ASSETS"`. |
 
