@@ -33,7 +33,9 @@ export async function middleware(request: NextRequest) {
 
   if (isDashboard && !isAuthRoute) {
     const { data } = await supabase.auth.getUser();
-    if (!data.user && process.env.NODE_ENV === "production") {
+    const isLocalhost = request.nextUrl.hostname === "localhost";
+    const allowDevOwner = isLocalhost && process.env.LOCALED_DEV_OWNER_ID;
+    if (!data.user && process.env.NODE_ENV === "production" && !allowDevOwner) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);

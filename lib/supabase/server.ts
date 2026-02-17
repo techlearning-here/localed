@@ -61,7 +61,9 @@ export async function getDashboardSupabase(): Promise<{
   const { headers } = await import("next/headers");
   const headersList = await headers();
   const devOwnerId = getDevOwnerIdFromHeader(headersList);
-  if (devOwnerId && process.env.NODE_ENV === "development" && supabaseUrl && supabaseServiceRoleKey) {
+  const isLocalhost = (headersList.get("host") ?? "").includes("localhost");
+  const allowDevOwner = (process.env.NODE_ENV === "development" || isLocalhost) && devOwnerId && supabaseUrl && supabaseServiceRoleKey;
+  if (allowDevOwner) {
     const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, { auth: { persistSession: false } });
     return { client: serviceClient, userId: devOwnerId };
   }
@@ -69,13 +71,16 @@ export async function getDashboardSupabase(): Promise<{
 }
 
 /**
- * Phase 2: session first; Phase 1 fallback: dev owner from header/env in development.
+ * Phase 2: session first; Phase 1 fallback: dev owner from header/env in development or on localhost (e.g. npm run preview).
  */
 export function getDevOwnerIdFromHeader(headers: Headers): string | null {
-  if (process.env.NODE_ENV !== "development") return null;
   const fromHeader = headers.get("X-Dev-User-Id");
   if (fromHeader) return fromHeader;
-  return process.env.LOCALED_DEV_OWNER_ID ?? null;
+  const isLocalhost = (headers.get("host") ?? "").includes("localhost");
+  if (process.env.NODE_ENV === "development" || isLocalhost) {
+    return process.env.LOCALED_DEV_OWNER_ID ?? null;
+  }
+  return null;
 }
 
 /**

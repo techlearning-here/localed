@@ -1,0 +1,7 @@
+# Copy to .dev.vars and fill in. Used by Wrangler for local preview (npm run preview).
+# .dev.vars is gitignored. Needed so dashboard works at http://localhost:8787 without login.
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+LOCALED_DEV_OWNER_ID=
+LOCALED_ADMIN_IDS=

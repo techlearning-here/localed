@@ -38,6 +38,12 @@ coverage
 # Vercel
 .vercel
 
+# Cloudflare (OpenNext build output; Wrangler local state; local secrets)
+.open-next
+.wrangler
+.dev.vars
+cloudflare-env.d.ts
+
 # Supabase (local dev)
 .supabase
 
