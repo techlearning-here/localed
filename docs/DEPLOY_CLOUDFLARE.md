@@ -75,13 +75,13 @@ npm install @opennextjs/cloudflare@latest
 ### Where to set them
 
 - **Local preview** (`npm run preview`): **`.dev.vars`** in the project root. Wrangler loads it for the Worker at http://localhost:8787. Copy from `.env.local` or use `.dev.vars.example`. **`.dev.vars` is never deployed** — it is only for local preview.
-- **Deployed Worker (Cloudflare):** The repo’s `wrangler.toml` includes a `[vars]` section so Cloudflare knows which bindings the Worker needs; that helps Variables and Secrets **persist** across Git redeploys. Set **real values** in the dashboard:
+- **Deployed Worker (Cloudflare):** **Do not** add a `[vars]` section to `wrangler.toml` — Git-triggered deploys run `wrangler deploy` and would push values from the repo (e.g. empty strings), **overwriting** the dashboard and clearing your secrets on every deploy. Set **all** runtime variables in the dashboard only. These values **persist** across Git redeploys as long as `wrangler.toml` has no `[vars]`:
   1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → select your **localed** worker.
   2. Open **Settings** → **Variables and Secrets**.
-  3. Add or edit each variable. Dashboard values override the placeholders in `wrangler.toml`. For **SUPABASE_SERVICE_ROLE_KEY** and **LOCALED_ADMIN_IDS** use **Encrypt** (Secrets) — do not put secret values in `wrangler.toml`.
-  4. If the UI says *"Update your wrangler config file with these changes to keep your local development environment in sync"*, the repo already has the matching `[vars]` in `wrangler.toml`; commit and push so future Git deploys stay in sync.
-  5. **Redeploy** (push a commit or run `npm run deploy:cf`) so the Worker gets the new values.
-- **Git/CI build**: In your build configuration, Variable name / Variable value are used at **build** time (e.g. for `NEXT_PUBLIC_*`). For **runtime** env on the deployed Worker, you still need to set them in the dashboard as above (or in your CI’s “Worker env” / “Secrets” step if it supports that).
+  3. Add each variable and secret there (e.g. `LOCALED_DEV_OWNER_ID`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `LOCALED_ADMIN_IDS`). Use **Encrypt** for secrets.
+  4. Save. If the UI prompts to "Update your wrangler config file", you can ignore it — we keep vars only in the dashboard so deploys do not overwrite them.
+  5. After changing vars, redeploy (push a commit or run `npm run deploy:cf`) so the Worker picks up new values.
+- **Git/CI build**: Build configuration variables are **build-time** only (e.g. for `NEXT_PUBLIC_*` inlining). Runtime vars must be set in the dashboard as above.
 
 ---
 
@@ -161,7 +161,7 @@ In **Supabase** → **Authentication** → **URL configuration**:
 | Auth redirect broken | Add the exact deployment URL (and custom domain) to Supabase Redirect URLs and Site URL. |
 | Dashboard redirects to login at localhost:8787 | Create `.dev.vars` with `LOCALED_DEV_OWNER_ID`, `SUPABASE_SERVICE_ROLE_KEY`, and Supabase URL/keys. Restart `npm run preview`. |
 | Dashboard works locally but not after deploy | `.dev.vars` is not deployed. Set the same vars in Cloudflare: Workers & Pages → your worker → **Settings** → **Variables and Secrets**. Then redeploy. Check with **GET /api/debug-env** (see below). |
-| Variables and Secrets disappear after redeploy | Declare runtime vars in `wrangler.toml` under `[vars]` (see repo). Then set real values in the dashboard. Git deploys use the config from the repo, so the bindings stay in sync. Add **SUPABASE_SERVICE_ROLE_KEY** as a **Secret** in the dashboard (not in `wrangler.toml`). |
+| Variables and Secrets disappear after redeploy | **Do not** add `[vars]` to `wrangler.toml`. Git deploys run `wrangler deploy` and send whatever is in `[vars]` (e.g. empty strings), which overwrites the dashboard and clears secrets. Set all runtime vars only in the dashboard (Settings → Variables and Secrets); they will persist across redeploys. |
 
 ### Checking if env vars are available on the deployed Worker
 
