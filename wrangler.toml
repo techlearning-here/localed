@@ -15,6 +15,7 @@ LOCALED_ADMIN_IDS = ""
 LOCALED_DEV_OWNER_ID = ""
 NEXT_PUBLIC_SUPABASE_URL = ""
 NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
+SUPABASE_SERVICE_ROLE_KEY = ""
 
 # Enable stored logs (dashboard Observability, Query Builder). Requires Wrangler 3.78.6+.
 [observability]
