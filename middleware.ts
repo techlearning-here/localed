@@ -33,6 +33,7 @@ export async function middleware(request: NextRequest) {
 
   if (isDashboard && !isAuthRoute) {
     const { data } = await supabase.auth.getUser();
+    // Temporary: allow dashboard without session when LOCALED_DEV_OWNER_ID is set. Remove once OAuth is integrated.
     const devOwnerId = process.env.LOCALED_DEV_OWNER_ID?.trim();
     const allowDevOwner = !!devOwnerId;
     if (!data.user && process.env.NODE_ENV === "production" && !allowDevOwner) {

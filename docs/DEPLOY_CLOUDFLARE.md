@@ -69,7 +69,7 @@ npm install @opennextjs/cloudflare@latest
 
 | Variable | Description |
 |----------|-------------|
-| `LOCALED_DEV_OWNER_ID` | Dev bypass; usually unset in production. Required in `.dev.vars` for dashboard at localhost:8787. |
+| `LOCALED_DEV_OWNER_ID` | Dev bypass; when set in production, dashboard works without sign-in. **Temporary** until OAuth is integrated—then remove and require session only. |
 | `RESEND_API_KEY`, `RESEND_FROM` | Contact form email (Resend). |
 
 ### Where to set them

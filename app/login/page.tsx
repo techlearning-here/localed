@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 
-/** Always run on server so we read current env and host. */
+/** Always run on server so we read current env and host. Temporary: dev-owner flow in production until OAuth is integrated. */
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {

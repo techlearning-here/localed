@@ -70,7 +70,8 @@ export async function getDashboardSupabase(): Promise<{
 }
 
 /**
- * Phase 2: session first; Phase 1 fallback: dev owner from header or LOCALED_DEV_OWNER_ID (works in dev, preview, and production when set).
+ * Phase 2: session first; Phase 1 fallback: dev owner from header or LOCALED_DEV_OWNER_ID.
+ * When OAuth is integrated, remove the LOCALED_DEV_OWNER_ID fallback and require session only.
  */
 export function getDevOwnerIdFromHeader(headers: Headers): string | null {
   const fromHeader = headers.get("X-Dev-User-Id");
