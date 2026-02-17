@@ -12,6 +12,7 @@ export default async function LoginPage() {
   const isLocalhost = host.includes("localhost");
 
   const isProduction = !isLocalhost;
+  const showDevOwnerFlow = !isProduction || devOwnerConfigured;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
@@ -19,23 +20,11 @@ export default async function LoginPage() {
         <h1 className="text-center text-xl font-bold text-gray-900">
           localed.info
         </h1>
-        {isProduction ? (
-          <>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              Sign in to access the dashboard. Google OAuth will be added soon.
-            </p>
-            <Link
-              href="/dashboard"
-              className="mt-6 flex w-full items-center justify-center rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800"
-            >
-              Go to dashboard
-            </Link>
-          </>
-        ) : (
+        {showDevOwnerFlow ? (
           <>
             <p className="mt-2 text-center text-sm text-gray-600">
               {devOwnerConfigured
-                ? "Development: you're set up. No sign-in required."
+                ? "You're set up. No sign-in required."
                 : "Development: use the dashboard with your dev owner ID."}
             </p>
             <Link
@@ -52,6 +41,15 @@ export default async function LoginPage() {
                 be added later.
               </p>
             )}
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              Sign in to access the dashboard. Google OAuth will be added soon.
+            </p>
+            <p className="mt-4 text-center text-xs text-gray-500">
+              Once signed in, you can open the dashboard from the home page.
+            </p>
           </>
         )}
         <Link
