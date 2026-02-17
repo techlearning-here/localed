@@ -7,6 +7,15 @@ compatibility_flags = [ "nodejs_compat" ]
 directory = ".open-next/assets"
 binding = "ASSETS"
 
+# Runtime env vars: set real values in Cloudflare dashboard (Settings → Variables and Secrets).
+# Dashboard values override these. For local preview, use .dev.vars instead.
+# Add SUPABASE_SERVICE_ROLE_KEY and LOCALED_ADMIN_IDS as Secrets in the dashboard (do not put secrets here).
+[vars]
+LOCALED_ADMIN_IDS = ""
+LOCALED_DEV_OWNER_ID = ""
+NEXT_PUBLIC_SUPABASE_URL = ""
+NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
+
 # Enable stored logs (dashboard Observability, Query Builder). Requires Wrangler 3.78.6+.
 [observability]
 enabled = true
