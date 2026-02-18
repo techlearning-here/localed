@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildPublishedPageHtmlFromSite } from "@/lib/build-published-html";
-import {
-  getArtifactPathPrefix,
-  getPublishedCdnBaseUrl,
-  uploadPublishedHtml,
-} from "@/lib/published-storage";
 import { getDashboardSupabase, getSupabaseServiceRole } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+/** Dynamic imports to avoid pulling EJS and Node-only paths into the route bundle (fixes "handler is not a function" on Cloudflare Workers). */
+async function loadPublishDeps() {
+  const [buildModule, storageModule] = await Promise.all([
+    import("@/lib/build-published-html"),
+    import("@/lib/published-storage"),
+  ]);
+  return {
+    buildPublishedPageHtmlFromSite: buildModule.buildPublishedPageHtmlFromSite,
+    getArtifactPathPrefix: storageModule.getArtifactPathPrefix,
+    getPublishedCdnBaseUrl: storageModule.getPublishedCdnBaseUrl,
+    uploadPublishedHtml: storageModule.uploadPublishedHtml,
+  };
+}
 
 async function getSiteAndCheckOwner(
   supabase: SupabaseClient | null,
@@ -59,6 +67,13 @@ export async function POST(
       { status: fetchError.message === "Forbidden" ? 403 : 404 }
     );
   }
+
+  const {
+    buildPublishedPageHtmlFromSite,
+    getArtifactPathPrefix,
+    getPublishedCdnBaseUrl,
+    uploadPublishedHtml,
+  } = await loadPublishDeps();
 
   let html: string;
   let meta: { title?: string; description?: string; ogImage?: string };
