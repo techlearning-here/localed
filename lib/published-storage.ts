@@ -1,25 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/**
- * R2-compatible bucket interface for published site files (no Cloudflare types dependency).
- */
-export type PublishedSitesBucket = {
-  put(
-    key: string,
-    value: string | ReadableStream | ArrayBuffer,
-    options?: { httpMetadata?: { contentType?: string } }
-  ): Promise<unknown>;
-  list(options?: {
-    prefix?: string;
-    cursor?: string;
-  }): Promise<{
-    objects: { key: string }[];
-    truncated?: boolean;
-    cursor?: string;
-  }>;
-  delete(keys: string | string[]): Promise<void>;
-};
-
 const ARTIFACT_PREFIX = "sites/";
 const SUPABASE_BUCKET = "published-sites";
 
@@ -46,7 +26,7 @@ function getLocalDir(): string {
 
 /**
  * Upload published HTML to Supabase Storage (bucket: published-sites, path: sites/{siteId}/index.html).
- * Use when R2 is not available (e.g. no credit card for Cloudflare). Bucket must exist and be public.
+ * Bucket must exist and be public.
  */
 export async function uploadPublishedHtmlToSupabase(
   supabase: SupabaseClient,
@@ -62,23 +42,14 @@ export async function uploadPublishedHtmlToSupabase(
 }
 
 /**
- * Upload published HTML to R2, Supabase Storage, or local folder (in that order when available).
+ * Upload published HTML to Supabase Storage or local folder (when Supabase not configured).
  * Local: writes to PUBLISHED_SITES_LOCAL_DIR (default public/published-sites)/sites/{siteId}/index.html.
  */
 export async function uploadPublishedHtml(
-  bucket: PublishedSitesBucket | undefined,
   siteId: string,
   html: string,
   supabase?: SupabaseClient | null
 ): Promise<boolean> {
-  if (bucket) {
-    const prefix = getArtifactPathPrefix(siteId);
-    const key = `${prefix}${INDEX_KEY}`;
-    await bucket.put(key, html, {
-      httpMetadata: { contentType: "text/html; charset=utf-8" },
-    });
-    return true;
-  }
   if (supabase) {
     return uploadPublishedHtmlToSupabase(supabase, siteId, html);
   }
@@ -107,25 +78,12 @@ export async function deletePublishedArtifactsFromSupabase(
 }
 
 /**
- * Delete all published artifacts for a site (R2, Supabase Storage, or local folder).
+ * Delete all published artifacts for a site (Supabase Storage or local folder).
  */
 export async function deletePublishedArtifacts(
-  bucket: PublishedSitesBucket | undefined,
   siteId: string,
   supabase?: SupabaseClient | null
 ): Promise<void> {
-  if (bucket) {
-    const prefix = getArtifactPathPrefix(siteId);
-    const keys: string[] = [];
-    let cursor: string | undefined;
-    do {
-      const result = await bucket.list({ prefix, cursor });
-      keys.push(...result.objects.map((o) => o.key));
-      cursor = result.truncated ? result.cursor : undefined;
-    } while (cursor);
-    if (keys.length > 0) await bucket.delete(keys);
-    return;
-  }
   if (supabase) {
     await deletePublishedArtifactsFromSupabase(supabase, siteId);
     return;
@@ -141,8 +99,7 @@ export async function deletePublishedArtifacts(
 }
 
 /**
- * Base URL for published site assets.
- * Uses PUBLISHED_SITES_CDN_URL if set (R2 or custom); otherwise Supabase Storage public URL when NEXT_PUBLIC_SUPABASE_URL is set.
+ * Base URL for published site assets (Supabase Storage public URL from NEXT_PUBLIC_SUPABASE_URL, or PUBLISHED_SITES_CDN_URL if set).
  */
 export function getPublishedCdnBaseUrl(): string {
   const raw =

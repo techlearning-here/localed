@@ -10,7 +10,6 @@ import {
   deletePublishedArtifactsFromSupabase,
   uploadPublishedHtml,
   deletePublishedArtifacts,
-  type PublishedSitesBucket,
 } from "./published-storage";
 
 describe("published-storage", () => {
@@ -47,9 +46,9 @@ describe("published-storage", () => {
     });
 
     it("prefers PUBLISHED_SITES_CDN_URL over Supabase URL", () => {
-      process.env.PUBLISHED_SITES_CDN_URL = "https://r2.dev";
+      process.env.PUBLISHED_SITES_CDN_URL = "https://custom-cdn.example.com";
       process.env.NEXT_PUBLIC_SUPABASE_URL = "https://xxx.supabase.co";
-      expect(getPublishedCdnBaseUrl()).toBe("https://r2.dev");
+      expect(getPublishedCdnBaseUrl()).toBe("https://custom-cdn.example.com");
     });
 
     it("returns empty string when neither env is set", () => {
@@ -138,32 +137,14 @@ describe("published-storage", () => {
   });
 
   describe("uploadPublishedHtml", () => {
-    it("uses R2 bucket when provided", async () => {
-      const put = vi.fn().mockResolvedValue(undefined);
-      const bucket: PublishedSitesBucket = {
-        put,
-        list: vi.fn().mockResolvedValue({ objects: [], truncated: false }),
-        delete: vi.fn().mockResolvedValue(undefined),
-      };
-
-      const result = await uploadPublishedHtml(bucket, "id-1", "<html></html>");
-
-      expect(result).toBe(true);
-      expect(put).toHaveBeenCalledWith(
-        "sites/id-1/index.html",
-        "<html></html>",
-        expect.objectContaining({ httpMetadata: { contentType: "text/html; charset=utf-8" } })
-      );
-    });
-
-    it("uses Supabase when bucket is undefined and supabase is provided", async () => {
+    it("uses Supabase when supabase is provided", async () => {
       const upload = vi.fn().mockResolvedValue({ error: null });
       const from = vi.fn().mockReturnValue({ upload });
       const supabase = {
         storage: { from: from },
-      } as unknown as Parameters<typeof uploadPublishedHtml>[3];
+      } as unknown as Parameters<typeof uploadPublishedHtml>[2];
 
-      const result = await uploadPublishedHtml(undefined, "id-2", "<html>supabase</html>", supabase);
+      const result = await uploadPublishedHtml("id-2", "<html>supabase</html>", supabase);
 
       expect(result).toBe(true);
       expect(upload).toHaveBeenCalledWith(
@@ -175,32 +156,14 @@ describe("published-storage", () => {
   });
 
   describe("deletePublishedArtifacts", () => {
-    it("uses R2 bucket when provided", async () => {
-      const list = vi.fn().mockResolvedValue({
-        objects: [{ key: "sites/id-1/index.html" }],
-        truncated: false,
-      });
-      const deleteKeys = vi.fn().mockResolvedValue(undefined);
-      const bucket: PublishedSitesBucket = {
-        put: vi.fn(),
-        list,
-        delete: deleteKeys,
-      };
-
-      await deletePublishedArtifacts(bucket, "id-1");
-
-      expect(list).toHaveBeenCalledWith(expect.objectContaining({ prefix: "sites/id-1/" }));
-      expect(deleteKeys).toHaveBeenCalledWith(["sites/id-1/index.html"]);
-    });
-
-    it("uses Supabase when bucket is undefined and supabase is provided", async () => {
+    it("uses Supabase when supabase is provided", async () => {
       const remove = vi.fn().mockResolvedValue({ error: null });
       const from = vi.fn().mockReturnValue({ remove });
       const supabase = {
         storage: { from: from },
-      } as unknown as Parameters<typeof deletePublishedArtifacts>[2];
+      } as unknown as Parameters<typeof deletePublishedArtifacts>[1];
 
-      await deletePublishedArtifacts(undefined, "id-2", supabase);
+      await deletePublishedArtifacts("id-2", supabase);
 
       expect(remove).toHaveBeenCalledWith(["sites/id-2/index.html"]);
     });

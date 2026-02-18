@@ -5,7 +5,6 @@ import {
   getPublishedCdnBaseUrl,
   uploadPublishedHtml,
 } from "@/lib/published-storage";
-import type { PublishedSitesBucket } from "@/lib/published-storage";
 import { getDashboardSupabase, getSupabaseServiceRole } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -35,7 +34,7 @@ const SITE_BASE_URL =
 
 /**
  * SITES-05: POST /api/dashboard/sites/[id]/publish
- * Builds static HTML from draft, uploads to R2, Supabase Storage, or local. Table stores path + meta; no full page in DB (recreate from draft_content).
+ * Builds static HTML from draft, uploads to Supabase Storage or local. Table stores path + meta; no full page in DB (recreate from draft_content).
  */
 export async function POST(
   _request: NextRequest,
@@ -63,17 +62,8 @@ export async function POST(
 
   const { html, meta } = buildPublishedPageHtmlFromSite(site, SITE_BASE_URL);
 
-  let bucket: PublishedSitesBucket | undefined;
-  try {
-    const mod = await import("@opennextjs/cloudflare");
-    const ctx = mod.getCloudflareContext?.();
-    bucket = (ctx?.env as { PUBLISHED_SITES?: PublishedSitesBucket } | undefined)?.PUBLISHED_SITES;
-  } catch {
-    bucket = undefined;
-  }
-
-  const supabaseForStorage = bucket ? undefined : getSupabaseServiceRole() ?? undefined;
-  const uploaded = await uploadPublishedHtml(bucket, id, html, supabaseForStorage);
+  const supabaseForStorage = getSupabaseServiceRole() ?? undefined;
+  const uploaded = await uploadPublishedHtml(id, html, supabaseForStorage);
   const published_at = new Date().toISOString();
 
   if (uploaded && getPublishedCdnBaseUrl()) {

@@ -12,11 +12,6 @@ binding = "ASSETS"
 # Set all runtime vars in Cloudflare dashboard only: Settings → Variables and Secrets.
 # For local preview use .dev.vars.
 
-# Published site static files (HTML) served via CDN. Create bucket: wrangler r2 bucket create localed-published
-[[r2_buckets]]
-binding = "PUBLISHED_SITES"
-bucket_name = "localed-published"
-
 # Enable stored logs (dashboard Observability, Query Builder). Requires Wrangler 3.78.6+.
 [observability]
 enabled = true

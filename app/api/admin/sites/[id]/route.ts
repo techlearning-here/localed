@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deletePublishedArtifacts } from "@/lib/published-storage";
-import type { PublishedSitesBucket } from "@/lib/published-storage";
 import { getDashboardSupabase, isAdminUserId } from "@/lib/supabase/server";
 import { getSupabaseServiceRole } from "@/lib/supabase/server";
 import { getSiteByIdForAdmin, deleteSiteForAdmin } from "@/lib/sites";
@@ -26,7 +25,7 @@ export async function GET(
 
 /**
  * DELETE /api/admin/sites/[id] — delete site permanently (admin only).
- * Removes published static files from R2 or Supabase Storage (or local), then deletes DB row.
+ * Removes published static files from Supabase Storage (or local), then deletes DB row.
  */
 export async function DELETE(
   _request: NextRequest,
@@ -37,16 +36,8 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { id } = await params;
-  let bucket: PublishedSitesBucket | undefined;
-  try {
-    const mod = await import("@opennextjs/cloudflare");
-    const ctx = mod.getCloudflareContext?.();
-    bucket = (ctx?.env as { PUBLISHED_SITES?: PublishedSitesBucket } | undefined)?.PUBLISHED_SITES;
-  } catch {
-    bucket = undefined;
-  }
   const supabase = getSupabaseServiceRole();
-  await deletePublishedArtifacts(bucket, id, supabase ?? undefined);
+  await deletePublishedArtifacts(id, supabase ?? undefined);
   const ok = await deleteSiteForAdmin(id);
   if (!ok) {
     return NextResponse.json({ error: "Delete failed" }, { status: 500 });
