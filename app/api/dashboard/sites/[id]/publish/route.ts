@@ -1,5 +1,13 @@
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest, NextResponse } from "next/server";
-import { getDashboardSupabase } from "@/lib/supabase/server";
+import { buildPublishedPageHtmlFromSite } from "@/lib/build-published-html";
+import {
+  getArtifactPathPrefix,
+  getPublishedCdnBaseUrl,
+  uploadPublishedHtml,
+} from "@/lib/published-storage";
+import type { PublishedSitesBucket } from "@/lib/published-storage";
+import { getDashboardSupabase, getSupabaseServiceRole } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function getSiteAndCheckOwner(
@@ -20,9 +28,15 @@ async function getSiteAndCheckOwner(
   return { site: data, error: null };
 }
 
+const SITE_BASE_URL =
+  typeof process.env.NEXT_PUBLIC_SITE_URL === "string" &&
+  process.env.NEXT_PUBLIC_SITE_URL.trim()
+    ? process.env.NEXT_PUBLIC_SITE_URL.trim().replace(/\/$/, "")
+    : "https://localed.info";
+
 /**
  * SITES-05: POST /api/dashboard/sites/[id]/publish
- * Copies draft to published. Public URL is /{site.slug} (the site name the user set in the editor).
+ * Builds static HTML from draft, uploads to R2, Supabase Storage, or local. Table stores path + meta; no full page in DB (recreate from draft_content).
  */
 export async function POST(
   _request: NextRequest,
@@ -47,8 +61,43 @@ export async function POST(
       { status: fetchError.message === "Forbidden" ? 403 : 404 }
     );
   }
-  const published_content = site.draft_content;
+
+  const { html, meta } = buildPublishedPageHtmlFromSite(site, SITE_BASE_URL);
+
+  let bucket: PublishedSitesBucket | undefined;
+  try {
+    const ctx = getCloudflareContext();
+    bucket = ctx.env?.PUBLISHED_SITES as PublishedSitesBucket | undefined;
+  } catch {
+    bucket = undefined;
+  }
+
+  const supabaseForStorage = bucket ? undefined : getSupabaseServiceRole() ?? undefined;
+  const uploaded = await uploadPublishedHtml(bucket, id, html, supabaseForStorage);
   const published_at = new Date().toISOString();
+
+  if (uploaded && getPublishedCdnBaseUrl()) {
+    const artifactPath = getArtifactPathPrefix(id).replace(/\/$/, "");
+    const updatePayload = {
+      published_at,
+      updated_at: published_at,
+      published_content: null,
+      published_artifact_path: artifactPath,
+      published_meta: meta,
+    };
+    const { data: updated, error } = await supabase
+      .from("localed_sites")
+      .update(updatePayload)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json(updated);
+  }
+
+  const published_content = site.draft_content;
   const updatePayload = {
     published_content,
     published_at,

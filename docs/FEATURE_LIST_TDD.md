@@ -2,7 +2,9 @@
 
 **TDD-oriented feature list for MVP: Health, Sites, Public site, Contact form, Editor, QR code, then Auth last.**
 
-*Document Version: 1.4*
+*Document Version: 1.5*
+
+**In scope for MVP:** Templates (2 per business type, template selection + optional extra fields in wizard), Contact submissions list (dashboard API + UI on edit page). See Summary checklist and “MVP features in this document” below.
 
 ---
 
@@ -139,6 +141,8 @@ Site rows store `draft_content` and `published_content` as JSON. The structure o
 
 **TDD:** Write tests for validation, slug uniqueness, and insert into `localed_sites` → implement endpoint → refactor.
 
+**MVP extension — Templates:** Request body must include `template_id` (2 templates per business type). Valid template ids are defined in the template catalog and must match the request’s `business_type`. When `draft_content` is not provided, it is built from the template via `buildDraftContentFromTemplate(template_id, languages, country)`; templates may define optional **extra fields** that the wizard collects and that are merged into `draft_content`.
+
 ---
 
 ## SITES-02 — List my sites (backend)
@@ -264,6 +268,26 @@ Site rows store `draft_content` and `published_content` as JSON. The structure o
 
 ---
 
+## PUBLIC-03 — Meta and Open Graph for shared links (v1.1)
+
+| Field | Value |
+|-------|--------|
+| **Feature** | Published site page has meta description and Open Graph tags (og:title, og:description, og:image, og:url) so shared links show a proper preview (e.g. WhatsApp, Twitter, Facebook). |
+| **Test level** | U (metadata builder), I (page metadata) |
+| **Depends on** | PUBLIC-02 |
+
+**Acceptance criteria / Test cases:**
+
+| ID | Given | When | Then |
+|----|--------|------|------|
+| PUBLIC-03.1 | Site has businessName, shortDescription, heroImage | Metadata is generated | og:title and meta description reflect business name and short description; og:image is hero or logo |
+| PUBLIC-03.2 | Site has no hero image | Metadata is generated | og:image falls back to logo if present, or omitted |
+| PUBLIC-03.3 | Canonical base URL is set | Metadata is generated | og:url and canonical are baseUrl/slug |
+
+**TDD:** Write unit tests for metadata builder (title, description, OG, canonical) → implement builder and use in generateMetadata → refactor.
+
+---
+
 # Module 4: Contact form
 
 ## CONTACT-01 — Submit contact form (backend)
@@ -303,6 +327,48 @@ Site rows store `draft_content` and `published_content` as JSON. The structure o
 | CONTACT-02.2 | API returns validation error | User submits invalid data | Error message shown |
 
 **TDD:** Write test for form submit and feedback → implement form and API call → refactor.
+
+---
+
+## CONTACT-03 — List contact submissions (dashboard, backend)
+
+| Field | Value |
+|-------|--------|
+| **Feature** | `GET /api/dashboard/sites/{id}/submissions` returns contact submissions for that site; only if the authenticated user (or dev owner) owns the site |
+| **Test level** | I |
+| **Depends on** | CONTACT-01 (submissions exist in `localed_contact_submissions`); SITES-03 (owner check). |
+
+**Acceptance criteria / Test cases:**
+
+| ID | Given | When | Then |
+|----|--------|------|------|
+| CONTACT-03.1 | User A owns site S; S has 2 contact submissions | User A calls `GET /api/dashboard/sites/{S.id}/submissions` | Response 200, list of 2 submissions (id, site_id, name, email, message, created_at), newest first |
+| CONTACT-03.2 | User A owns site S; S has no submissions | `GET /api/dashboard/sites/{S.id}/submissions` | Response 200, empty list |
+| CONTACT-03.3 | User B does not own site S | User B calls `GET /api/dashboard/sites/{S.id}/submissions` | Response 403 (or 404) |
+| CONTACT-03.4 | No session / no dev owner | `GET /api/dashboard/sites/{id}/submissions` | Response 401 |
+| CONTACT-03.5 | Invalid or non-existent site id | Owner calls GET with invalid id | Response 404 |
+
+**TDD:** Write tests for list + ownership → implement GET → refactor.
+
+---
+
+## CONTACT-03-UI — Contact submissions list in dashboard (frontend)
+
+| Field | Value |
+|-------|--------|
+| **Feature** | On the site edit page, owner sees a "Contact submissions" section that lists recent submissions (name, email, message, date) or an empty state |
+| **Test level** | I (component or integration) |
+| **Depends on** | CONTACT-03 (GET submissions API) |
+
+**Acceptance criteria / Test cases:**
+
+| ID | Given | When | Then |
+|----|--------|------|------|
+| CONTACT-03-UI.1 | User owns site S; S has submissions | User is on edit page for S | Section "Contact submissions" is visible; list shows name, email, message, date (newest first) |
+| CONTACT-03-UI.2 | User owns site S; S has no submissions | User is on edit page for S | Section shows "No contact submissions yet" (or similar) |
+| CONTACT-03-UI.3 | User is creating a new site (id=new) | User is on create wizard | Contact submissions section is not shown |
+
+**TDD:** Write test for list rendering (e.g. date formatting or presentational helper) → implement section and integrate into edit page → refactor.
 
 ---
 
@@ -463,12 +529,19 @@ Implement after Phase 1 features work. Removes dev-owner bypass and requires rea
 | Module | Features | Suggested test focus | Phase |
 |--------|----------|----------------------|--------|
 | 1. Health | AUTH-01 | I for health endpoint | 1 |
-| 2. Sites | SITES-01 .. SITES-05 | I for all CRUD and publish | 1 |
-| 3. Public (path-based localed.info/[slug]) | PUBLIC-01, PUBLIC-02 | I for API; I/E for render | 1 |
-| 4. Contact | CONTACT-01, CONTACT-02 | I for API; I/E for form | 1 |
+| 2. Sites | SITES-01 .. SITES-05, **Templates (MVP)** | I for all CRUD and publish; U/I for template catalog and draft-from-template | 1 |
+| 3. Public (path-based localed.info/[slug]) | PUBLIC-01, PUBLIC-02, **PUBLIC-03** (meta/OG) | I for API; I/E for render; U for meta builder | 1 |
+| 4. Contact | CONTACT-01, CONTACT-02, **CONTACT-03**, **CONTACT-03-UI** | I for API; I/E for form; I for list submissions API and dashboard section | 1 |
 | 5. Editor | EDITOR-01 .. EDITOR-03 | I, E for flows | 1 |
 | 6. QR | QR-01 | U for generate; I for UI | 1 |
 | 7. Auth (last) | AUTH-02 .. AUTH-04 | I for API auth; E for login/logout | 2 |
+
+---
+
+## MVP features in this document
+
+- **Templates (2 per business type):** User selects one of two templates per business type when creating/editing a site. The wizard includes a **Template** step (choose Modern or Classic) and a **Template details** step for templates that define extra fields (e.g. “Services section intro”). Create-site API requires `template_id` and validates it for the given `business_type`; draft content can be built from the template and optional extra-field values. See SITES-01 (MVP extension) and template catalog / `buildDraftContentFromTemplate`.
+- **Contact submissions list (dashboard):** **CONTACT-03** — `GET /api/dashboard/sites/{id}/submissions` returns contact form submissions for the site (owner only; newest first). **CONTACT-03-UI** — On the site edit page, a “Contact submissions” section shows the list (or empty state) and uses a unit-tested date formatter.
 
 ---
 

@@ -10,6 +10,8 @@ export type PublishedSiteRow = {
   languages: string[];
   country?: string | null;
   published_content: Record<string, Record<string, unknown>> | null;
+  published_artifact_path?: string | null;
+  published_meta?: { title?: string; description?: string; ogImage?: string } | null;
 };
 
 /**
@@ -23,7 +25,7 @@ export async function getPublishedSiteBySlug(
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("localed_sites")
-    .select("id, slug, business_type, template_id, languages, country, published_content")
+    .select("id, slug, business_type, template_id, languages, country, published_content, published_artifact_path, published_meta")
     .eq("slug", slug)
     .not("published_at", "is", null)
     .is("archived_at", null)

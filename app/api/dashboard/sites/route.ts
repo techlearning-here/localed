@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDashboardSupabase } from "@/lib/supabase/server";
-import { buildInitialDraftContent, isValidSlug } from "@/lib/templates";
+import { buildDraftContentFromTemplate, isValidSlug } from "@/lib/templates";
+import { isTemplateValidForBusinessType } from "@/lib/template-catalog";
 import type { CreateSiteBody } from "@/lib/types/site";
 
 /** SITES-02: GET /api/dashboard/sites — list current owner's sites */
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       { status: 422 }
     );
   }
-  const { business_type, slug, languages, country, draft_content: bodyDraft } = body;
+  const { business_type, slug, languages, country, template_id, draft_content: bodyDraft } = body;
   if (
     !business_type ||
     !slug ||
@@ -50,6 +51,18 @@ export async function POST(request: NextRequest) {
   ) {
     return NextResponse.json(
       { error: "Missing or invalid business_type, slug, or languages" },
+      { status: 422 }
+    );
+  }
+  if (!template_id || typeof template_id !== "string") {
+    return NextResponse.json(
+      { error: "Missing template_id" },
+      { status: 422 }
+    );
+  }
+  if (!isTemplateValidForBusinessType(template_id, business_type)) {
+    return NextResponse.json(
+      { error: "Invalid template_id for this business type" },
       { status: 422 }
     );
   }
@@ -62,8 +75,7 @@ export async function POST(request: NextRequest) {
   const draft_content =
     bodyDraft && typeof bodyDraft === "object"
       ? bodyDraft
-      : buildInitialDraftContent(languages, country);
-  const template_id = "default";
+      : buildDraftContentFromTemplate(template_id, languages, country);
   const plan = "free";
 
   const { data: existing } = await supabase

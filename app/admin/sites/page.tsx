@@ -10,6 +10,7 @@ export default function AdminSitesPage() {
   const [forbidden, setForbidden] = useState(false);
   const [archivedOnly, setArchivedOnly] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [siteToDelete, setSiteToDelete] = useState<LocaledSite | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -32,13 +33,22 @@ export default function AdminSitesPage() {
     load();
   }, [load]);
 
-  async function handleDelete(site: LocaledSite) {
-    if (!confirm(`Delete "${site.slug}" forever? This cannot be undone.`)) return;
-    setDeletingId(site.id);
+  function openDeleteConfirm(site: LocaledSite) {
+    setSiteToDelete(site);
+  }
+
+  function closeDeleteConfirm() {
+    if (!deletingId) setSiteToDelete(null);
+  }
+
+  async function confirmDelete() {
+    if (!siteToDelete) return;
+    setDeletingId(siteToDelete.id);
     try {
-      const res = await fetch(`/api/admin/sites/${site.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/sites/${siteToDelete.id}`, { method: "DELETE" });
       if (res.ok) {
-        setSites((prev) => prev.filter((s) => s.id !== site.id));
+        setSites((prev) => prev.filter((s) => s.id !== siteToDelete.id));
+        setSiteToDelete(null);
       }
     } finally {
       setDeletingId(null);
@@ -140,7 +150,7 @@ export default function AdminSitesPage() {
                     </Link>
                     <button
                       type="button"
-                      onClick={() => handleDelete(site)}
+                      onClick={() => openDeleteConfirm(site)}
                       disabled={deletingId === site.id}
                       className="text-sm text-red-600 underline hover:text-red-800 disabled:opacity-50"
                     >
@@ -158,6 +168,46 @@ export default function AdminSitesPage() {
           {archivedOnly ? "No archived sites." : "No sites."}
         </p>
       )}
+
+      {siteToDelete ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-dialog-title"
+          onClick={closeDeleteConfirm}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="delete-dialog-title" className="text-lg font-semibold text-gray-900">
+              Delete site?
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Delete &quot;{siteToDelete.slug}&quot; forever? This cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                disabled={!!deletingId}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={!!deletingId}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deletingId === siteToDelete.id ? "Deleting…" : "Delete forever"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

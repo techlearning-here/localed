@@ -2,13 +2,19 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { BusinessType, LocaledSite } from "@/lib/types/site";
 import { TIMEZONE_OPTIONS } from "@/lib/timezones";
 import { COUNTRY_OPTIONS } from "@/lib/countries";
 import { DEFAULT_LANGUAGE, getLanguagesForCountry } from "@/lib/languages";
 import { useDashboardFeatures } from "@/app/dashboard/features-context";
+import {
+  getTemplatesForBusinessType,
+  getTemplateById,
+  getDefaultTemplateIdForBusinessType,
+} from "@/lib/template-catalog";
 import { QRCodeSection } from "./qr-code-section";
+import { ContactSubmissionsSection } from "./contact-submissions-section";
 
 /** Base URL for the app; published site and QR code use this + site slug (user’s site name). */
 const BASE_URL =
@@ -33,6 +39,8 @@ const WIZARD_STEPS = [
   { id: "basic", label: "Basic info" },
   { id: "contact", label: "Contact" },
   { id: "hours", label: "Business hours" },
+  { id: "template", label: "Template" },
+  { id: "template_extras", label: "Template details" },
   { id: "media", label: "Media" },
 ] as const;
 
@@ -53,6 +61,9 @@ export default function EditSitePage() {
   const [slugProposed, setSlugProposed] = useState("");
   const [slugAvailability, setSlugAvailability] = useState<{ available: boolean; message: string } | null>(null);
   const [checkingSlug, setCheckingSlug] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [templateExtraValues, setTemplateExtraValues] = useState<Record<string, string>>({});
+  const stepContentRef = useRef<HTMLDivElement>(null);
 
   const flags = useDashboardFeatures();
   const [form, setForm] = useState<Record<string, string>>({});
@@ -82,6 +93,20 @@ export default function EditSitePage() {
     setSiteLanguages(data.languages?.length ? [...data.languages] : [DEFAULT_LANGUAGE]);
     const locale = data.languages?.[0] ?? "en";
     const content = (data.draft_content?.[locale] ?? data.draft_content?.en ?? {}) as Record<string, string>;
+    const templateId =
+      data.template_id && getTemplateById(data.template_id)
+        ? data.template_id
+        : getDefaultTemplateIdForBusinessType((data.business_type as BusinessType) ?? "other");
+    setSelectedTemplateId(templateId);
+    const template = getTemplateById(templateId);
+    const extras: Record<string, string> = {};
+    if (template?.extraFields?.length) {
+      for (const field of template.extraFields) {
+        const v = content[field.key];
+        extras[field.key] = typeof v === "string" ? v : "";
+      }
+    }
+    setTemplateExtraValues(extras);
     setForm({
       businessName: content.businessName ?? "",
       legalName: content.legalName ?? "",
@@ -125,6 +150,16 @@ export default function EditSitePage() {
       return kept.length > 0 ? kept : [DEFAULT_LANGUAGE];
     });
   }, [form.country, site?.id]);
+
+  useEffect(() => {
+    if (isCreateMode && businessType && !selectedTemplateId) {
+      setSelectedTemplateId(getDefaultTemplateIdForBusinessType(businessType));
+    }
+  }, [isCreateMode, businessType, selectedTemplateId]);
+
+  useEffect(() => {
+    stepContentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [currentStep]);
 
   const primaryLocale = siteLanguages[0] ?? site?.languages?.[0] ?? "en";
   const languageOptionsForCountry = getLanguagesForCountry(form.country ?? site?.country ?? "");
@@ -201,7 +236,7 @@ export default function EditSitePage() {
         }
       : { ...form };
     const draftContentForPayload = {
-      [locale]: { ...base, galleryUrls, youtubeUrls },
+      [locale]: { ...base, ...templateExtraValues, galleryUrls, youtubeUrls },
     };
 
     if (isCreateMode) {
@@ -224,6 +259,7 @@ export default function EditSitePage() {
             business_type: businessType,
             slug,
             languages: siteLanguages.length ? siteLanguages : [DEFAULT_LANGUAGE],
+            template_id: selectedTemplateId || getDefaultTemplateIdForBusinessType(businessType),
             country: form.country || null,
             draft_content: draftContentForPayload,
           }),
@@ -320,7 +356,7 @@ export default function EditSitePage() {
       const galleryUrls = (form.galleryUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
       const youtubeUrls = (form.youtubeUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
       const draftContentForPayload = {
-        [locale]: { ...form, galleryUrls, youtubeUrls },
+        [locale]: { ...form, ...templateExtraValues, galleryUrls, youtubeUrls },
       };
       try {
         const createRes = await fetch("/api/dashboard/sites", {
@@ -330,6 +366,7 @@ export default function EditSitePage() {
             business_type: businessType,
             slug,
             languages: siteLanguages.length ? siteLanguages : [DEFAULT_LANGUAGE],
+            template_id: selectedTemplateId || getDefaultTemplateIdForBusinessType(businessType),
             country: form.country || null,
             draft_content: draftContentForPayload,
           }),
@@ -463,8 +500,8 @@ export default function EditSitePage() {
         )}
       </div>
 
-      {error && saveStatus === "error" && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
           {error}
         </div>
       )}
@@ -519,9 +556,14 @@ export default function EditSitePage() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        {/* Step 0: Site settings — site name, country, business type, languages */}
+        {/* Step content: scrolls into view when step changes */}
+        <div ref={stepContentRef}>
+        {/* Step 0: Site settings */}
         {currentStep === 0 && (
           <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <p className="mb-2 text-sm font-medium text-gray-500">
+              Step 1 of {totalSteps} — {WIZARD_STEPS[0].label}
+            </p>
             <h2 className="mb-4 text-lg font-medium text-gray-900">Site settings</h2>
             <p className="mb-4 text-sm text-gray-500">
               Change country, business type, or site languages here. These affect language options and how your site is categorized.
@@ -677,9 +719,113 @@ export default function EditSitePage() {
           </div>
         )}
 
+        {/* Step 4: Template selection */}
+        {currentStep === 4 && (
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <p className="mb-2 text-sm font-medium text-gray-500">
+              Step 5 of {totalSteps} — {WIZARD_STEPS[4].label}
+            </p>
+            <h2 className="mb-4 text-lg font-medium text-gray-900">Choose a template</h2>
+            <p className="mb-4 text-sm text-gray-500">
+              Pick one of two layouts for your business type. You can change this later.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {getTemplatesForBusinessType(businessType).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedTemplateId(t.id);
+                    setTemplateExtraValues({});
+                  }}
+                  className={`rounded-lg border-2 p-4 text-left transition ${
+                    selectedTemplateId === t.id
+                      ? "border-gray-900 bg-gray-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <span className="font-medium text-gray-900">{t.label}</span>
+                  {t.extraFields?.length ? (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Asks for {t.extraFields.length} extra detail{t.extraFields.length === 1 ? "" : "s"} in the next step
+                    </p>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Template extras (optional fields for selected template) */}
+        {currentStep === 5 && (
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <p className="mb-2 text-sm font-medium text-gray-500">
+              Step 6 of {totalSteps} — {WIZARD_STEPS[5].label}
+            </p>
+            <h2 className="mb-4 text-lg font-medium text-gray-900">Template details</h2>
+            {(() => {
+              const template = getTemplateById(selectedTemplateId);
+              const extraFields = template?.extraFields ?? [];
+              if (extraFields.length === 0) {
+                return (
+                  <p className="text-sm text-gray-500">
+                    This template has no extra fields. Click Next to continue.
+                  </p>
+                );
+              }
+              return (
+                <div className="space-y-4">
+                  {extraFields.map((field) => (
+                    <div key={field.key}>
+                      <label
+                        htmlFor={`template-extra-${field.key}`}
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        {field.label}
+                      </label>
+                      {field.type === "textarea" ? (
+                        <textarea
+                          id={`template-extra-${field.key}`}
+                          value={templateExtraValues[field.key] ?? ""}
+                          onChange={(e) =>
+                            setTemplateExtraValues((prev) => ({
+                              ...prev,
+                              [field.key]: e.target.value,
+                            }))
+                          }
+                          placeholder={field.placeholder}
+                          rows={3}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                        />
+                      ) : (
+                        <input
+                          id={`template-extra-${field.key}`}
+                          type="text"
+                          value={templateExtraValues[field.key] ?? ""}
+                          onChange={(e) =>
+                            setTemplateExtraValues((prev) => ({
+                              ...prev,
+                              [field.key]: e.target.value,
+                            }))
+                          }
+                          placeholder={field.placeholder}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {/* Step 1: Basic info */}
         {currentStep === 1 && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <p className="mb-2 text-sm font-medium text-gray-500">
+            Step 2 of {totalSteps} — {WIZARD_STEPS[1].label}
+          </p>
           <h2 className="mb-4 text-lg font-medium text-gray-900">Basic info</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -786,6 +932,9 @@ export default function EditSitePage() {
         {/* Step 2: Contact */}
         {currentStep === 2 && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <p className="mb-2 text-sm font-medium text-gray-500">
+            Step 3 of {totalSteps} — {WIZARD_STEPS[2].label}
+          </p>
           <h2 className="mb-4 text-lg font-medium text-gray-900">Contact</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -872,6 +1021,9 @@ export default function EditSitePage() {
         {/* Step 3: Business hours */}
         {currentStep === 3 && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <p className="mb-2 text-sm font-medium text-gray-500">
+            Step 4 of {totalSteps} — {WIZARD_STEPS[3].label}
+          </p>
           <h2 className="mb-4 text-lg font-medium text-gray-900">Business hours</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -919,9 +1071,12 @@ export default function EditSitePage() {
         </div>
         )}
 
-        {/* Step 4: Media */}
-        {currentStep === 4 && (
+        {/* Step 6: Media */}
+        {currentStep === 6 && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <p className="mb-2 text-sm font-medium text-gray-500">
+            Step 7 of {totalSteps} — {WIZARD_STEPS[6].label}
+          </p>
           <h2 className="mb-4 text-lg font-medium text-gray-900">Media</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -966,6 +1121,7 @@ export default function EditSitePage() {
           </div>
         </div>
         )}
+        </div>
 
         {/* Wizard navigation + global actions */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-gray-200 pt-6">
@@ -997,6 +1153,11 @@ export default function EditSitePage() {
             >
               {saving ? "Saving…" : "Save draft"}
             </button>
+            {isCreateMode && slugAvailability?.available !== true && slugProposed.trim() && (
+              <span className="text-xs text-amber-700">
+                Check site name availability above first.
+              </span>
+            )}
             {saveStatus === "saved" && (
               <span className="text-sm text-green-600">Saved</span>
             )}
@@ -1045,6 +1206,10 @@ export default function EditSitePage() {
         <p className="mt-6 text-sm text-gray-500">
           Publish your site to get a public link and QR code.
         </p>
+      )}
+
+      {!isCreateMode && site && (
+        <ContactSubmissionsSection siteId={site.id} />
       )}
     </div>
   );

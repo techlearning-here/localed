@@ -1,11 +1,20 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { ContactForm } from "@/components/contact-form";
+import { buildPublicSiteMetadata } from "@/lib/build-public-meta";
 import { getCountryLabel } from "@/lib/countries";
+import { getPublishedSiteUrl } from "@/lib/published-storage";
 import { getPublishedSiteBySlug } from "@/lib/sites";
+
+const PUBLIC_SITE_BASE =
+  typeof process.env.NEXT_PUBLIC_SITE_URL === "string" && process.env.NEXT_PUBLIC_SITE_URL.trim()
+    ? process.env.NEXT_PUBLIC_SITE_URL.trim().replace(/\/$/, "")
+    : "";
 
 /**
  * PUBLIC-02: Path-based published site at /[siteSlug]
+ * PUBLIC-03: Meta and Open Graph for shared links.
+ * When published to CDN (published_artifact_path), metadata uses published_meta.
  */
 export async function generateMetadata({
   params,
@@ -14,14 +23,38 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { siteSlug } = await params;
   const site = await getPublishedSiteBySlug(siteSlug);
-  if (!site?.published_content) return { title: "Site" };
+  if (!site) return { title: "Site" };
+  if (site.published_artifact_path && site.published_meta) {
+    const m = site.published_meta;
+    return {
+      title: m.title ?? site.slug,
+      description: m.description ?? undefined,
+      openGraph: {
+        title: m.title ?? site.slug,
+        description: m.description ?? undefined,
+        url: PUBLIC_SITE_BASE ? `${PUBLIC_SITE_BASE}/${siteSlug}` : undefined,
+        ...(m.ogImage && { images: [{ url: m.ogImage }] }),
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: m.title ?? site.slug,
+        description: m.description ?? undefined,
+        ...(m.ogImage && { images: [m.ogImage] }),
+      },
+      ...(m.ogImage && { icons: [{ url: m.ogImage, rel: "icon" }] }),
+    };
+  }
+  if (!site.published_content) return { title: "Site" };
   const locale = site.languages?.[0] ?? "en";
-  const content = site.published_content[locale] ?? site.published_content.en ?? {};
+  const content = (site.published_content[locale] ?? site.published_content.en ?? {}) as Record<string, unknown>;
   const businessName = String(content.businessName || "") || site.slug || "Site";
   const tagline = typeof content.tagline === "string" ? content.tagline : "";
   const favicon = typeof content.favicon === "string" ? content.favicon : typeof content.logo === "string" ? content.logo : undefined;
+
+  const meta = buildPublicSiteMetadata(content, siteSlug, PUBLIC_SITE_BASE);
   return {
-    title: tagline ? `${businessName} — ${tagline}` : businessName,
+    ...meta,
+    title: tagline ? `${businessName} — ${tagline}` : meta.title,
     icons: favicon ? [{ url: favicon, rel: "icon" }] : undefined,
   };
 }
@@ -33,7 +66,12 @@ export default async function PublicSitePage({
 }) {
   const { siteSlug } = await params;
   const site = await getPublishedSiteBySlug(siteSlug);
-  if (!site?.published_content) notFound();
+  if (!site) notFound();
+  const cdnUrl = site.published_artifact_path
+    ? getPublishedSiteUrl(site.published_artifact_path)
+    : "";
+  if (cdnUrl) redirect(cdnUrl);
+  if (!site.published_content) notFound();
 
   const locale = site.languages?.[0] ?? "en";
   const content = site.published_content[locale] ?? site.published_content.en ?? {};

@@ -55,6 +55,76 @@ API route tests **mock** `@/lib/supabase/server` (e.g. `getDashboardSupabase`, `
 4. Implement or fix the code until tests pass (Green).
 5. Refactor if needed; keep tests green.
 
+## Manual testing
+
+Use this to verify the app end-to-end in the browser (dashboard, wizard, public site, contact form, meta/OG).
+
+### 1. Setup
+
+- **Supabase:** Create a project and get URL + anon key + service role key.
+- **Env (Next.js dev):** Create `.env.local` in the project root with at least:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `LOCALED_DEV_OWNER_ID` — a UUID from Supabase Auth → Users (or create a user and copy its id)
+- **Optional:** `NEXT_PUBLIC_SITE_URL` (e.g. `https://localed.info`) for canonical URLs and OG links. For local dev you can leave it unset or use `http://localhost:3000`.
+- **Preview (Workers):** For `npm run preview`, copy `.dev.vars.example` to `.dev.vars` and fill the same keys so the dashboard works at http://localhost:8787 without login.
+
+### 2. Run the app
+
+```bash
+npm run dev
+```
+
+Open **http://localhost:3000**. (Or use `npm run preview` and open **http://localhost:8787**.)
+
+### 3. Dashboard and create flow
+
+1. Go to **Dashboard** (e.g. http://localhost:3000/dashboard). You should see “My sites” (empty or list).
+2. Click **Create site** (or open `/dashboard/sites/new/edit`).
+3. **Step 1 — Site settings:** Enter a site name (e.g. `my-salon`), choose business type, country, languages. Click **Check availability**; wait for “available.” Click **Next**.
+4. **Step 2 — Basic info:** Fill business name, short description, etc. Click **Next**.
+5. **Step 3 — Contact:** Fill address, phone, email. Click **Next**.
+6. **Step 4 — Business hours:** Set timezone and hours. Click **Next**.
+7. **Step 5 — Template:** Choose **Modern** or **Classic**. Click **Next**.
+8. **Step 6 — Template details:** If the template has extra fields, fill them; otherwise click **Next**.
+9. **Step 7 — Media:** Optionally add hero image URL, gallery, YouTube. Click **Next** to reach the bottom.
+10. Click **Save draft** or **Save and publish**. You should be redirected to the edit page for the new site (or see an error in the red banner; fix env/slug and try again).
+
+### 4. Edit and contact submissions
+
+- On the edit page, change steps via the progress bar or Previous/Next. Edit fields and click **Save draft** to persist.
+- If the site is published, scroll down: the **Contact submissions** section should load (one request in the terminal). If there are no submissions, it shows “No contact submissions yet.”
+
+### 5. Public site and contact form
+
+1. Publish the site if it isn’t already (edit page → **Publish**).
+2. Open the public URL: **http://localhost:3000/{slug}** (e.g. http://localhost:3000/my-salon).
+3. Check that business name, description, contact, and hours appear.
+4. Submit the **contact form** (name, email, message). You should see a success message.
+5. Back on the edit page, refresh or scroll to **Contact submissions** — the new submission should appear.
+
+### 6. Meta and Open Graph (PUBLIC-03)
+
+1. Publish a site that has **business name**, **short description**, and ideally a **hero image** (or logo) URL.
+2. Open the public page: **http://localhost:3000/{slug}**.
+3. **View page source** (e.g. right‑click → View Page Source) and confirm:
+   - `<meta name="description" content="...">` with the short description
+   - `<meta property="og:title" ...>`, `og:description`, `og:image`, `og:url`
+   - `<link rel="canonical" href="...">` if `NEXT_PUBLIC_SITE_URL` is set
+4. **Preview sharing:** Use a tool like [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) or [Twitter Card Validator](https://cards-dev.twitter.com/validator) with your deployed URL (e.g. `https://your-domain.com/your-slug`) to see how the link preview looks. For localhost, these tools often can’t fetch the page; deploy to a public URL to test OG previews.
+
+### 7. Quick checks
+
+| What | How |
+|------|-----|
+| 401 on dashboard | Set `LOCALED_DEV_OWNER_ID` and `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` (or `.dev.vars` for preview). |
+| Save draft “not working” | Ensure you clicked **Check availability** and the site name is available; check the red error banner. |
+| Double GET /submissions | Fixed with a ref dedupe; you should see a single request per edit page load. |
+| No OG preview when sharing | Set `NEXT_PUBLIC_SITE_URL` and deploy; use a public URL in sharing validators. |
+
+---
+
 ## CI
 
 CI runs `npm run test` and `npm run build`. All tests must pass before merge. See [CONTRIBUTING.md](../CONTRIBUTING.md).

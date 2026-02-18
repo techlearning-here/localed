@@ -53,6 +53,13 @@ export type BusinessType =
 
 export type Plan = "free" | "paid";
 
+/** Minimal meta stored when publishing to CDN (title, description, ogImage). */
+export type PublishedMeta = {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+};
+
 export type LocaledSite = {
   id: string;
   owner_id: string;
@@ -67,7 +74,12 @@ export type LocaledSite = {
   /** When set, site is archived: hidden from public, contact form disabled */
   archived_at: string | null;
   draft_content: SiteContent;
+  /** Set when serving from DB (no CDN). When using CDN, null; recreate the site from draft_content + path + meta. */
   published_content: SiteContent | null;
+  /** Path prefix for published static files (e.g. sites/{id}); used with CDN base URL */
+  published_artifact_path?: string | null;
+  /** Minimal meta for redirect page when serving from CDN */
+  published_meta?: PublishedMeta | null;
   created_at: string;
   updated_at: string;
 };
@@ -76,9 +88,11 @@ export type CreateSiteBody = {
   business_type: BusinessType;
   slug: string;
   languages: string[];
+  /** Template id (MVP: 2 per business type); must be valid for business_type */
+  template_id: string;
   /** Optional; stored on site and pre-fills editor so we don't ask again */
   country?: string | null;
-  /** Optional; when provided (e.g. from wizard) used instead of buildInitialDraftContent */
+  /** Optional; when provided (e.g. from wizard) used instead of buildDraftContentFromTemplate */
   draft_content?: SiteContent;
 };
 

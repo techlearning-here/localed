@@ -15,6 +15,8 @@ const mockSite = {
   id: "site-1",
   owner_id: "owner-1",
   slug: "joes-salon",
+  business_type: "salon",
+  template_id: "salon-modern",
   draft_content: { en: {} },
   languages: ["en"],
 };

@@ -9,6 +9,8 @@ out
 dist
 build
 *.tsbuildinfo
+# Locally generated published site files (when testing without R2)
+public/published-sites
 
 # Environment (keep .env.example committed as a template)
 .env

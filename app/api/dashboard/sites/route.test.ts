@@ -45,10 +45,52 @@ describe("POST /api/dashboard/sites (SITES-01)", () => {
         business_type: "salon",
         slug: "joes-salon",
         languages: ["en"],
+        template_id: "salon-modern",
       }),
     });
     const res = await POST(req);
     expect(res.status).toBe(401);
+  });
+
+  it("returns 422 when template_id missing", async () => {
+    vi.mocked(getDashboardSupabase).mockResolvedValue({
+      client: {} as never,
+      userId: "user-1",
+    });
+    const req = new Request("http://localhost/api/dashboard/sites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        business_type: "salon",
+        slug: "joes-salon",
+        languages: ["en"],
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(422);
+    const data = await res.json();
+    expect(data.error).toMatch(/template/i);
+  });
+
+  it("returns 422 when template_id invalid for business type", async () => {
+    vi.mocked(getDashboardSupabase).mockResolvedValue({
+      client: {} as never,
+      userId: "user-1",
+    });
+    const req = new Request("http://localhost/api/dashboard/sites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        business_type: "salon",
+        slug: "joes-salon",
+        languages: ["en"],
+        template_id: "clinic-modern",
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(422);
+    const data = await res.json();
+    expect(data.error).toMatch(/template|invalid/i);
   });
 
   it("SITES-01.3: returns 422 for invalid slug (too short)", async () => {
@@ -63,6 +105,7 @@ describe("POST /api/dashboard/sites (SITES-01)", () => {
         business_type: "salon",
         slug: "a",
         languages: ["en"],
+        template_id: "salon-modern",
       }),
     });
     const res = await POST(req);
@@ -83,6 +126,7 @@ describe("POST /api/dashboard/sites (SITES-01)", () => {
         business_type: "salon",
         slug: "joes_salon",
         languages: ["en"],
+        template_id: "salon-modern",
       }),
     });
     const res = await POST(req);
@@ -117,6 +161,7 @@ describe("POST /api/dashboard/sites (SITES-01)", () => {
         business_type: "salon",
         slug: "joes-salon",
         languages: [],
+        template_id: "salon-modern",
       }),
     });
     const res = await POST(req);
@@ -159,6 +204,7 @@ describe("POST /api/dashboard/sites (SITES-01)", () => {
         business_type: "salon",
         slug: "custom-site",
         languages: ["en"],
+        template_id: "salon-modern",
         country: null,
         draft_content: customDraft,
       }),
@@ -167,11 +213,12 @@ describe("POST /api/dashboard/sites (SITES-01)", () => {
     expect(res.status).toBe(201);
     const data = await res.json();
     expect(data.id).toBe("new-site-id");
+    expect(data.template_id).toBe("salon-modern");
     expect(data.draft_content).toEqual(customDraft);
     expect(capturedInsert.draft_content).toEqual(customDraft);
   });
 
-  it("creates site with buildInitialDraftContent when draft_content not provided", async () => {
+  it("creates site with buildDraftContentFromTemplate when draft_content not provided", async () => {
     let capturedInsert: Record<string, unknown> = {};
     const mockFrom = vi.fn((table: string) => {
       if (table !== "localed_sites") return {};
@@ -204,10 +251,12 @@ describe("POST /api/dashboard/sites (SITES-01)", () => {
         business_type: "other",
         slug: "my-site",
         languages: ["en"],
+        template_id: "other-modern",
       }),
     });
     const res = await POST(req);
     expect(res.status).toBe(201);
+    expect(capturedInsert.template_id).toBe("other-modern");
     expect(capturedInsert.draft_content).toBeDefined();
     expect((capturedInsert.draft_content as Record<string, unknown>).en).toBeDefined();
   });

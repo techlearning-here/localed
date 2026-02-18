@@ -37,7 +37,9 @@ npm install @opennextjs/cloudflare@latest
 ## 2. Config files (already in repo)
 
 - **`open-next.config.ts`** — OpenNext Cloudflare config.
-- **`wrangler.toml`** — Worker name `localed`, `nodejs_compat`, assets from `.open-next/assets`. `compatibility_date` must be `2024-09-23` or later. For a custom domain, use Workers & Pages → your worker → Custom domains.
+- **`wrangler.toml`** — Worker name `localed`, `nodejs_compat`, assets from `.open-next/assets`, and an **R2 bucket** binding for published site files:
+  - `[[r2_buckets]]` → `binding = "PUBLISHED_SITES"`, `bucket_name = "localed-published"`.
+  - The bucket must be created separately (see section 4, Published sites on R2). `compatibility_date` must be `2024-09-23` or later. For a custom domain, use Workers & Pages → your worker → Custom domains.
 
 ---
 
@@ -71,6 +73,48 @@ npm install @opennextjs/cloudflare@latest
 |----------|-------------|
 | `LOCALED_DEV_OWNER_ID` | Dev bypass; when set in production, dashboard works without sign-in. **Temporary** until OAuth is integrated—then remove and require session only. |
 | `RESEND_API_KEY`, `RESEND_FROM` | Contact form email (Resend). |
+| `PUBLISHED_SITES_CDN_URL` | Optional. Base URL for published site static files when using **R2** (e.g. `https://pub-xxx.r2.dev`). When using **Supabase Storage**, leave unset — the app derives the base from `NEXT_PUBLIC_SUPABASE_URL`. |
+
+### Published sites: Supabase Storage (default) or R2
+
+Published site pages are **static HTML** from the EJS template. The app stores them in object storage (no full page in the DB). You can use **Supabase Storage** (no Cloudflare credit card) or **Cloudflare R2** (free egress, may require card to enable).
+
+---
+
+**Option A — Supabase Storage (recommended for now, no R2 signup)**
+
+Uses your existing Supabase project. No extra env; base URL is derived from `NEXT_PUBLIC_SUPABASE_URL`.
+
+1. **Create a Storage bucket** in Supabase (once):
+   - Dashboard → **Storage** → **New bucket**.
+   - Name: **`published-sites`** (must match exactly).
+   - Set the bucket to **Public** so published pages are readable by URL.
+2. **No `PUBLISHED_SITES_CDN_URL`** — leave it unset. The app uses  
+   `{NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/published-sites` as the base.
+3. **Redeploy.** Each **Publish** uploads HTML to Supabase Storage at `sites/{id}/index.html` (using the service role). Visiting `/{siteSlug}` redirects to that URL. **Delete site** removes the object and the DB row.
+
+**Where files live:** Supabase Storage bucket `published-sites`, object key `sites/{site-id}/index.html`. Free tier: 1 GB storage, 5 GB egress/month.
+
+---
+
+**Option B — Cloudflare R2 (optional; free egress, may require card)**
+
+1. **Enable R2** in the Cloudflare dashboard (Storage → R2); add a payment method if prompted.
+2. **Create the bucket:**  
+   `npx wrangler r2 bucket create localed-published`
+3. **Enable public access** for the bucket (R2 → bucket → Settings → Public access, or custom domain + Worker).
+4. **Set `PUBLISHED_SITES_CDN_URL`** in the Worker to the bucket’s public base URL (e.g. `https://pub-xxxx.r2.dev`).
+5. **Redeploy.** Publish/delete use R2 when the `PUBLISHED_SITES` binding is available; otherwise the app falls back to Supabase Storage (or local).
+
+**Where files live:** R2 bucket `localed-published`, key `sites/{site-id}/index.html`. Free tier: 10 GB storage, 1M Class A / 10M Class B ops, unlimited egress.
+
+---
+
+**Backend order:** The app tries **R2** first (if binding present), then **Supabase Storage** (if Supabase is configured), then **local folder** (e.g. `next dev`).
+
+**Recreating from the table:** Use `buildPublishedPageHtmlFromSite(site, baseUrl)` then upload to the same backend (Supabase or R2).
+
+**Local testing:** When neither R2 nor Supabase is used for publish (e.g. `next dev` with no Supabase), files go to **`public/published-sites/sites/{id}/index.html`**. Set `PUBLISHED_SITES_CDN_URL=http://localhost:3000/published-sites` and optionally `PUBLISHED_SITES_LOCAL_DIR=public/published-sites`. `public/published-sites` is in `.gitignore`.
 
 ### Where to set them
 
@@ -78,7 +122,7 @@ npm install @opennextjs/cloudflare@latest
 - **Deployed Worker (Cloudflare):** **Do not** add a `[vars]` section to `wrangler.toml` — Git-triggered deploys run `wrangler deploy` and would push values from the repo (e.g. empty strings), **overwriting** the dashboard and clearing your secrets on every deploy. Set **all** runtime variables in the dashboard only. These values **persist** across Git redeploys as long as `wrangler.toml` has no `[vars]`:
   1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → select your **localed** worker.
   2. Open **Settings** → **Variables and Secrets**.
-  3. Add each variable and secret there (e.g. `LOCALED_DEV_OWNER_ID`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `LOCALED_ADMIN_IDS`). Use **Encrypt** for secrets.
+  3. Add each variable and secret there (e.g. `LOCALED_DEV_OWNER_ID`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `LOCALED_ADMIN_IDS`; optional: `PUBLISHED_SITES_CDN_URL` for R2). Use **Encrypt** for secrets.
   4. Save. If the UI prompts to "Update your wrangler config file", you can ignore it — we keep vars only in the dashboard so deploys do not overwrite them.
   5. After changing vars, redeploy (push a commit or run `npm run deploy:cf`) so the Worker picks up new values.
 - **Git/CI build**: Build configuration variables are **build-time** only (e.g. for `NEXT_PUBLIC_*` inlining). Runtime vars must be set in the dashboard as above.
@@ -162,6 +206,7 @@ In **Supabase** → **Authentication** → **URL configuration**:
 | Dashboard redirects to login at localhost:8787 | Create `.dev.vars` with `LOCALED_DEV_OWNER_ID`, `SUPABASE_SERVICE_ROLE_KEY`, and Supabase URL/keys. Restart `npm run preview`. |
 | Dashboard works locally but not after deploy | `.dev.vars` is not deployed. Set the same vars in Cloudflare: Workers & Pages → your worker → **Settings** → **Variables and Secrets**. Then redeploy. Check with **GET /api/debug-env** (see below). |
 | Variables and Secrets disappear after redeploy | **Do not** add `[vars]` to `wrangler.toml`. Git deploys run `wrangler deploy` and send whatever is in `[vars]` (e.g. empty strings), which overwrites the dashboard and clears secrets. Set all runtime vars only in the dashboard (Settings → Variables and Secrets); they will persist across redeploys. |
+| Published sites not redirecting to CDN / 404 on view site | Ensure the R2 bucket `localed-published` exists (`wrangler r2 bucket create localed-published`), public access is enabled (or a Worker serves the bucket), and `PUBLISHED_SITES_CDN_URL` is set in the Worker to the public base URL. Redeploy after adding the variable. |
 
 ### Checking if env vars are available on the deployed Worker
 
@@ -220,3 +265,4 @@ If any value is `false`, that variable is not set (or is empty) in the Worker en
 - [ ] `npm run preview` works at http://localhost:8787 (dashboard works with `.dev.vars`)
 - [ ] `npm run deploy:cf` succeeds and app loads at the given URL
 - [ ] `NEXT_PUBLIC_SITE_URL` set to workers.dev URL or custom domain
+- [ ] **Published sites:** Supabase Storage bucket `published-sites` created and set to **Public** (section 4), or optionally R2 bucket + `PUBLISHED_SITES_CDN_URL`

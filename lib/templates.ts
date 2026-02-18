@@ -1,4 +1,5 @@
 import type { SiteContent } from "@/lib/types/site";
+import { getTemplateById } from "@/lib/template-catalog";
 
 const DEFAULT_LOCALE_CONTENT = {
   businessName: "",
@@ -40,6 +41,33 @@ export function buildInitialDraftContent(
       galleryUrls: [],
       youtubeUrls: [],
     };
+  }
+  return content;
+}
+
+/**
+ * Build draft_content from a template: base defaults plus template extra fields.
+ * Used when creating a site with a selected template (MVP: 2 templates per business type).
+ */
+export function buildDraftContentFromTemplate(
+  templateId: string,
+  languages: string[],
+  country?: string | null,
+  extraFieldValues?: Record<string, string>
+): SiteContent {
+  const base = buildInitialDraftContent(languages, country);
+  const template = getTemplateById(templateId);
+  if (!template || !template.extraFields?.length) {
+    return base;
+  }
+  const values = extraFieldValues ?? {};
+  const content: SiteContent = {};
+  for (const lang of languages) {
+    const localeContent = { ...(base[lang] ?? base.en ?? {}) } as Record<string, unknown>;
+    for (const field of template.extraFields) {
+      localeContent[field.key] = values[field.key] ?? "";
+    }
+    content[lang] = localeContent;
   }
   return content;
 }

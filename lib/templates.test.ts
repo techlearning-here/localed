@@ -3,7 +3,7 @@
  * FEATURE_LIST_TDD: SITES-01.3 (invalid slug), SITES-01.5 (languages).
  */
 import { describe, it, expect } from "vitest";
-import { buildInitialDraftContent, isValidSlug } from "./templates";
+import { buildInitialDraftContent, buildDraftContentFromTemplate, isValidSlug } from "./templates";
 
 describe("isValidSlug", () => {
   it("SITES-01.3: accepts valid lowercase alphanumeric and hyphens", () => {
@@ -46,5 +46,34 @@ describe("buildInitialDraftContent", () => {
   it("includes country in default locale content", () => {
     const content = buildInitialDraftContent(["en"]);
     expect(content.en).toHaveProperty("country", "");
+  });
+});
+
+describe("buildDraftContentFromTemplate", () => {
+  it("returns base content when template has no extraFields", () => {
+    const content = buildDraftContentFromTemplate("salon-modern", ["en"]);
+    expect(content.en).toBeDefined();
+    expect(content.en?.businessName).toBe("");
+    expect(content.en).not.toHaveProperty("servicesIntro");
+  });
+
+  it("adds extra field keys to each locale when template has extraFields", () => {
+    const content = buildDraftContentFromTemplate("salon-classic", ["en"], null, {
+      servicesIntro: "What we offer",
+    });
+    expect(content.en?.servicesIntro).toBe("What we offer");
+  });
+
+  it("uses empty string for extra field when not in extraFieldValues", () => {
+    const content = buildDraftContentFromTemplate("salon-classic", ["en"]);
+    expect(content.en?.servicesIntro).toBe("");
+  });
+
+  it("builds for all languages", () => {
+    const content = buildDraftContentFromTemplate("salon-classic", ["en", "hi"], null, {
+      servicesIntro: "Intro",
+    });
+    expect(content.en?.servicesIntro).toBe("Intro");
+    expect(content.hi?.servicesIntro).toBe("Intro");
   });
 });
