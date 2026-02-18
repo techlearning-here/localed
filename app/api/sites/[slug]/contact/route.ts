@@ -26,7 +26,7 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  let body: { name?: string; email?: string; message?: string };
+  let body: { name?: string; email?: string; message?: string; subject?: string; phone?: string; company?: string; website?: string };
   try {
     body = await request.json();
   } catch {
@@ -35,7 +35,10 @@ export async function POST(
       { status: 422 }
     );
   }
-  const { name, email, message } = body;
+  if (typeof body.website === "string" && body.website.trim() !== "") {
+    return NextResponse.json({ error: "Invalid submission" }, { status: 400 });
+  }
+  const { name, email, message, subject: bodySubject, phone: bodyPhone, company: bodyCompany } = body;
   if (!name || !email || !message) {
     return NextResponse.json(
       { error: "Missing name, email, or message" },
@@ -55,11 +58,21 @@ export async function POST(
 
   const ownerEmail = getOwnerEmailFromContent(site.published_content);
   const siteName = getSiteNameFromContent(site.published_content);
+  const defaultSubject = getContactFormSubjectFromContent(site.published_content);
+  const emailSubject = (bodySubject?.trim() || defaultSubject) || undefined;
   if (ownerEmail) {
     await sendContactNotification(
       ownerEmail,
-      { name, email, message },
-      siteName
+      {
+        name,
+        email,
+        message,
+        subject: bodySubject,
+        phone: bodyPhone?.trim() || undefined,
+        company: bodyCompany?.trim() || undefined,
+      },
+      siteName,
+      emailSubject
     );
   }
 
@@ -86,4 +99,15 @@ function getSiteNameFromContent(content: unknown): string {
     }
   }
   return "";
+}
+
+function getContactFormSubjectFromContent(content: unknown): string | null {
+  if (!content || typeof content !== "object") return null;
+  const locales = content as Record<string, Record<string, unknown>>;
+  for (const locale of Object.values(locales)) {
+    if (locale && typeof locale === "object" && typeof locale.contactFormSubject === "string" && locale.contactFormSubject.trim()) {
+      return locale.contactFormSubject.trim();
+    }
+  }
+  return null;
 }

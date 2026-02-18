@@ -63,4 +63,42 @@ describe("buildPublicSiteMetadata (PUBLIC-03)", () => {
     const meta = buildPublicSiteMetadata(content, "my-site", baseUrl);
     expect(meta.title).toBe("my-site");
   });
+
+  it("uses metaTitle override when set", () => {
+    const content: Record<string, unknown> = {
+      businessName: "Joe's Salon",
+      tagline: "Tag",
+      metaTitle: "Custom Page Title",
+    };
+    const meta = buildPublicSiteMetadata(content, "joes-salon", baseUrl);
+    expect(meta.title).toBe("Custom Page Title");
+  });
+
+  it("uses metaDescription override when set", () => {
+    const content: Record<string, unknown> = {
+      businessName: "Joe's Salon",
+      shortDescription: "Short.",
+      metaDescription: "Custom description for SEO.",
+    };
+    const meta = buildPublicSiteMetadata(content, "joes-salon", baseUrl);
+    expect(meta.description).toBe("Custom description for SEO.");
+  });
+
+  it("uses tagline for default title when no metaTitle", () => {
+    const content: Record<string, unknown> = {
+      businessName: "Joe's Salon",
+      tagline: "Your neighborhood cut",
+    };
+    const meta = buildPublicSiteMetadata(content, "joes-salon", baseUrl);
+    expect(meta.title).toBe("Joe's Salon — Your neighborhood cut");
+  });
+
+  it("includes keywords when set", () => {
+    const content: Record<string, unknown> = {
+      businessName: "Joe's Salon",
+      keywords: "salon, hair, beauty",
+    };
+    const meta = buildPublicSiteMetadata(content, "joes-salon", baseUrl);
+    expect(meta.keywords).toBe("salon, hair, beauty");
+  });
 });

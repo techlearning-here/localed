@@ -1,3 +1,42 @@
+/** Single certification or award (DATA_WE_COLLECT §10): text and/or image */
+export type CertificationAwardItem = {
+  title?: string;
+  image?: string;
+};
+
+/** Single team member (DATA_WE_COLLECT §10): name, role, optional photo and bio */
+export type TeamMemberItem = {
+  name: string;
+  role?: string;
+  photo?: string;
+  bio?: string;
+};
+
+/** Single testimonial (DATA_WE_COLLECT §10): quote, author, optional photo and rating */
+export type TestimonialItem = {
+  quote: string;
+  author?: string;
+  photo?: string;
+  rating?: string;
+};
+
+/** Single FAQ item (DATA_WE_COLLECT §10) */
+export type FaqItem = {
+  question: string;
+  answer: string;
+};
+
+/** Single service (or menu item / product) for DATA_WE_COLLECT §5 */
+export type ServiceItem = {
+  name: string;
+  description?: string;
+  image?: string;
+  duration?: string;
+  price?: string;
+  /** Optional category to group services (e.g. "Hair", "Nails") */
+  category?: string;
+};
+
 /** Content per locale for localed_sites draft_content / published_content */
 export type SiteContentLocale = {
   businessName?: string;
@@ -8,19 +47,45 @@ export type SiteContentLocale = {
   logo?: string;
   /** Favicon URL; can be derived from logo if not set (DATA_WE_COLLECT §1) */
   favicon?: string;
+  /** SEO override: meta title (defaults to business name + tagline) (DATA_WE_COLLECT §9) */
+  metaTitle?: string;
+  /** SEO override: meta description (defaults to short description) (DATA_WE_COLLECT §9) */
+  metaDescription?: string;
+  /** SEO: optional keywords for meta or directory (DATA_WE_COLLECT §9) */
+  keywords?: string;
   shortDescription?: string;
   about?: string;
   /** Year established e.g. "Since 2010" (DATA_WE_COLLECT §3) */
   yearEstablished?: string;
   address?: string;
+  /** Locality (city) for address display and schema */
+  addressLocality?: string;
+  /** Region (state/province) for schema */
+  addressRegion?: string;
+  /** Postal code */
+  postalCode?: string;
   /** Country (ISO 3166-1 alpha-2) e.g. "IN", "US" (DATA_WE_COLLECT §2) */
   country?: string;
   /** Location / area served e.g. "Serving Mumbai and suburbs" (DATA_WE_COLLECT §2) */
   areaServed?: string;
   phone?: string;
+  /** Optional second phone (DATA_WE_COLLECT §2) */
+  phone2?: string;
   email?: string;
   /** WhatsApp link or number (DATA_WE_COLLECT §2) */
   whatsApp?: string;
+  /** Optional subject line for contact form emails */
+  contactFormSubject?: string;
+  /** Preferred contact method e.g. "phone", "email", "whatsapp" (DATA_WE_COLLECT §2) */
+  contactPreference?: string;
+  /** Optional second email (DATA_WE_COLLECT §2) */
+  email2?: string;
+  /** Custom message shown after contact form submit (optional) */
+  contactFormSuccessMessage?: string;
+  /** Price range for schema e.g. "$$" (DATA_WE_COLLECT §9 / schema.org) */
+  priceRange?: string;
+  /** Optional map embed iframe URL (e.g. from Google Maps share > Embed) */
+  mapEmbedUrl?: string;
   /** Regular hours e.g. "Mon–Fri 9–6, Sat 10–4, Sun closed" (DATA_WE_COLLECT) */
   businessHours?: string;
   /** Special hours / holidays e.g. "Closed on Diwali" (optional) */
@@ -31,8 +96,96 @@ export type SiteContentLocale = {
   heroImage?: string;
   /** Gallery image URLs (DATA_WE_COLLECT §4) */
   galleryUrls?: string[];
+  /** Optional caption per gallery image (same order as galleryUrls) */
+  galleryCaptions?: string[];
   /** YouTube video URLs for embed (DATA_WE_COLLECT §4) */
   youtubeUrls?: string[];
+  /** Other video URLs e.g. Vimeo (DATA_WE_COLLECT §4, later) */
+  otherVideoUrls?: string[];
+  /** Social and external links (DATA_WE_COLLECT §7) */
+  facebookUrl?: string;
+  instagramUrl?: string;
+  youtubeChannelUrl?: string;
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  tiktokUrl?: string;
+  /** Optional "Other" link: label (e.g. "Blog") and URL */
+  otherLinkLabel?: string;
+  otherLinkUrl?: string;
+  /** Services / what we offer / menu (DATA_WE_COLLECT §5) */
+  services?: ServiceItem[];
+  /** FAQ question + answer pairs (DATA_WE_COLLECT §10) */
+  faq?: FaqItem[];
+  /** CTA button e.g. "Call now", "Book now" — label + URL (DATA_WE_COLLECT §10) */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  /** Second CTA button (optional) */
+  cta2Label?: string;
+  cta2Url?: string;
+  /** Third CTA button (optional) */
+  cta3Label?: string;
+  cta3Url?: string;
+  /** Payment methods e.g. "We accept Cash, Card, UPI." (DATA_WE_COLLECT §10) */
+  paymentMethods?: string;
+  /** Testimonials: quote, author, optional photo/rating (DATA_WE_COLLECT §10) */
+  testimonials?: TestimonialItem[];
+  /** Team / staff: name, role, optional photo and bio (DATA_WE_COLLECT §10) */
+  team?: TeamMemberItem[];
+  /** Certifications / awards: text or image (DATA_WE_COLLECT §10) */
+  certifications?: CertificationAwardItem[];
+  /** Appointments (DATA_WE_COLLECT §8): booking on/off */
+  bookingEnabled?: boolean;
+  /** Slot duration e.g. "30 min" (DATA_WE_COLLECT §8) */
+  bookingSlotDuration?: string;
+  /** Lead time e.g. "Book at least 2 hours ahead" (DATA_WE_COLLECT §8) */
+  bookingLeadTime?: string;
+  /** Service names that can be booked; empty = all (DATA_WE_COLLECT §8) */
+  bookingServiceIds?: string[];
+  /** External booking URL when booking enabled (e.g. Calendly link) */
+  bookingUrl?: string;
+  /** When false, hide "View on map" link (address still shown) */
+  showMapLink?: boolean;
+  /** Optional one-line announcement at top of site */
+  announcementBar?: string;
+  /** Optional footer text (e.g. "© 2024 Business Name") */
+  footerText?: string;
+  /** Section title overrides (defaults: "What we offer", "About", "Contact", etc.) */
+  servicesSectionTitle?: string;
+  aboutSectionTitle?: string;
+  contactSectionTitle?: string;
+  hoursSectionTitle?: string;
+  gallerySectionTitle?: string;
+  videosSectionTitle?: string;
+  otherVideosSectionTitle?: string;
+  faqSectionTitle?: string;
+  testimonialsSectionTitle?: string;
+  teamSectionTitle?: string;
+  certificationsSectionTitle?: string;
+  contactFormSectionTitle?: string;
+  socialSectionTitle?: string;
+  /** Optional primary/theme color (hex) for buttons/links */
+  themeColor?: string;
+  /** Robots meta e.g. "noindex, nofollow" (optional) */
+  robotsMeta?: string;
+  /** Optional custom CSS URL (linked in head) */
+  customCssUrl?: string;
+  /** Label for map/directions link (default: "View on map") */
+  directionsLabel?: string;
+  /** Show "Back to top" link at bottom when true */
+  showBackToTop?: boolean;
+  /** Newsletter CTA: label and URL (e.g. "Subscribe" → mailto or signup page) */
+  newsletterLabel?: string;
+  newsletterUrl?: string;
+  /** When true, show newsletter block on the site (requires newsletterLabel or newsletterUrl) */
+  hasNewsletter?: boolean;
+  /** Share section: title (e.g. "Share this page"); when set, show share links */
+  shareSectionTitle?: string;
+  /** Custom domain display in footer (e.g. "Visit us at example.com") */
+  customDomainDisplay?: string;
+  /** Contact form: reply-to display name for notification email */
+  contactFormReplyToName?: string;
+  /** Render FAQ as accordion (details/summary) when true */
+  faqAsAccordion?: boolean;
   [key: string]: unknown;
 };
 

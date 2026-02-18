@@ -47,6 +47,66 @@ describe("buildInitialDraftContent", () => {
     const content = buildInitialDraftContent(["en"]);
     expect(content.en).toHaveProperty("country", "");
   });
+
+  it("includes services as empty array in default locale content", () => {
+    const content = buildInitialDraftContent(["en"]);
+    expect(content.en).toHaveProperty("services");
+    expect(content.en?.services).toEqual([]);
+  });
+
+  it("includes social URL keys in default locale content", () => {
+    const content = buildInitialDraftContent(["en"]);
+    expect(content.en).toHaveProperty("facebookUrl", "");
+    expect(content.en).toHaveProperty("instagramUrl", "");
+    expect(content.en).toHaveProperty("youtubeChannelUrl", "");
+    expect(content.en).toHaveProperty("twitterUrl", "");
+    expect(content.en).toHaveProperty("linkedinUrl", "");
+    expect(content.en).toHaveProperty("tiktokUrl", "");
+    expect(content.en).toHaveProperty("otherLinkLabel", "");
+    expect(content.en).toHaveProperty("otherLinkUrl", "");
+  });
+
+  it("includes faq as empty array in default locale content", () => {
+    const content = buildInitialDraftContent(["en"]);
+    expect(content.en).toHaveProperty("faq");
+    expect(content.en?.faq).toEqual([]);
+  });
+
+  it("includes CTA keys in default locale content", () => {
+    const content = buildInitialDraftContent(["en"]);
+    expect(content.en).toHaveProperty("ctaLabel", "");
+    expect(content.en).toHaveProperty("ctaUrl", "");
+  });
+
+  it("includes paymentMethods in default locale content", () => {
+    const content = buildInitialDraftContent(["en"]);
+    expect(content.en).toHaveProperty("paymentMethods", "");
+  });
+
+  it("includes testimonials as empty array in default locale content", () => {
+    const content = buildInitialDraftContent(["en"]);
+    expect(content.en).toHaveProperty("testimonials");
+    expect(content.en?.testimonials).toEqual([]);
+  });
+
+  it("includes team as empty array in default locale content", () => {
+    const content = buildInitialDraftContent(["en"]);
+    expect(content.en).toHaveProperty("team");
+    expect(content.en?.team).toEqual([]);
+  });
+
+  it("includes certifications as empty array in default locale content", () => {
+    const content = buildInitialDraftContent(["en"]);
+    expect(content.en).toHaveProperty("certifications");
+    expect(content.en?.certifications).toEqual([]);
+  });
+
+  it("includes SEO fields in default locale content", () => {
+    const content = buildInitialDraftContent(["en"]);
+    expect(content.en).toHaveProperty("metaTitle", "");
+    expect(content.en).toHaveProperty("metaDescription", "");
+    expect(content.en).toHaveProperty("keywords", "");
+  });
 });
 
 describe("buildDraftContentFromTemplate", () => {

@@ -122,8 +122,9 @@ describe("POST /api/sites/[slug]/contact (CONTACT-01)", () => {
     expect(sendContactNotification).toHaveBeenCalledTimes(1);
     expect(sendContactNotification).toHaveBeenCalledWith(
       "owner@example.com",
-      { name: "Jane", email: "j@example.com", message: "Hi, I'd like to book." },
-      "Joe's Salon"
+      { name: "Jane", email: "j@example.com", message: "Hi, I'd like to book.", subject: undefined },
+      "Joe's Salon",
+      undefined
     );
   });
 });

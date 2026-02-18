@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { BusinessType, LocaledSite } from "@/lib/types/site";
+import type { BusinessType, LocaledSite, ServiceItem, FaqItem, TestimonialItem, TeamMemberItem, CertificationAwardItem } from "@/lib/types/site";
 import { TIMEZONE_OPTIONS } from "@/lib/timezones";
 import { COUNTRY_OPTIONS } from "@/lib/countries";
 import { DEFAULT_LANGUAGE, getLanguagesForCountry } from "@/lib/languages";
@@ -37,12 +37,104 @@ const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
 const WIZARD_STEPS = [
   { id: "site_settings", label: "Site settings" },
   { id: "basic", label: "Basic info" },
-  { id: "contact", label: "Contact" },
-  { id: "hours", label: "Business hours" },
+  { id: "contact", label: "Contact & form" },
+  { id: "hours", label: "Hours & booking" },
   { id: "template", label: "Template" },
   { id: "template_extras", label: "Template details" },
-  { id: "media", label: "Media" },
+  { id: "services", label: "Services" },
+  { id: "faq", label: "FAQ" },
+  { id: "testimonials", label: "Testimonials" },
+  { id: "team", label: "Team" },
+  { id: "certifications", label: "Certifications" },
+  { id: "media", label: "Media & videos" },
 ] as const;
+
+/** Default form keys so all wizard fields exist from the start (create mode and when switching steps). */
+const INITIAL_FORM: Record<string, string> = {
+  businessName: "",
+  legalName: "",
+  tagline: "",
+  logo: "",
+  favicon: "",
+  metaTitle: "",
+  metaDescription: "",
+  keywords: "",
+  shortDescription: "",
+  about: "",
+  yearEstablished: "",
+  address: "",
+  addressLocality: "",
+  addressRegion: "",
+  postalCode: "",
+  country: "",
+  areaServed: "",
+  phone: "",
+  phone2: "",
+  email: "",
+  whatsApp: "",
+  contactFormSubject: "",
+  contactFormReplyToName: "",
+  contactPreference: "",
+  email2: "",
+  contactFormSuccessMessage: "",
+  priceRange: "",
+  mapEmbedUrl: "",
+  directionsLabel: "View on map",
+  businessHours: "",
+  specialHours: "",
+  timezone: "",
+  heroImage: "",
+  galleryUrls: "",
+  galleryCaptions: "",
+  youtubeUrls: "",
+  otherVideoUrls: "",
+  bookingEnabled: "false",
+  bookingSlotDuration: "",
+  bookingLeadTime: "",
+  bookingServiceIds: "",
+  facebookUrl: "",
+  instagramUrl: "",
+  youtubeChannelUrl: "",
+  twitterUrl: "",
+  linkedinUrl: "",
+  tiktokUrl: "",
+  otherLinkLabel: "",
+  otherLinkUrl: "",
+  ctaLabel: "",
+  ctaUrl: "",
+  cta2Label: "",
+  cta2Url: "",
+  cta3Label: "",
+  cta3Url: "",
+  paymentMethods: "",
+  bookingUrl: "",
+  showMapLink: "true",
+  announcementBar: "",
+  footerText: "",
+  customDomainDisplay: "",
+  showBackToTop: "false",
+  newsletterLabel: "",
+  newsletterUrl: "",
+  hasNewsletter: "false",
+  shareSectionTitle: "",
+  robotsMeta: "",
+  customCssUrl: "",
+  themeColor: "",
+  faqAsAccordion: "false",
+  servicesSectionTitle: "",
+  aboutSectionTitle: "",
+  contactSectionTitle: "",
+  hoursSectionTitle: "",
+  gallerySectionTitle: "",
+  videosSectionTitle: "",
+  otherVideosSectionTitle: "",
+  faqSectionTitle: "",
+  testimonialsSectionTitle: "",
+  teamSectionTitle: "",
+  certificationsSectionTitle: "",
+  contactFormSectionTitle: "",
+  socialSectionTitle: "",
+};
 
 export default function EditSitePage() {
   const params = useParams();
@@ -63,10 +155,15 @@ export default function EditSitePage() {
   const [checkingSlug, setCheckingSlug] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [templateExtraValues, setTemplateExtraValues] = useState<Record<string, string>>({});
+  const [servicesList, setServicesList] = useState<ServiceItem[]>([]);
+  const [faqList, setFaqList] = useState<FaqItem[]>([]);
+  const [testimonialsList, setTestimonialsList] = useState<TestimonialItem[]>([]);
+  const [teamList, setTeamList] = useState<TeamMemberItem[]>([]);
+  const [certificationsList, setCertificationsList] = useState<CertificationAwardItem[]>([]);
   const stepContentRef = useRef<HTMLDivElement>(null);
 
   const flags = useDashboardFeatures();
-  const [form, setForm] = useState<Record<string, string>>({});
+  const [form, setForm] = useState<Record<string, string>>(() => ({ ...INITIAL_FORM }));
   const totalSteps = WIZARD_STEPS.length;
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === totalSteps - 1;
@@ -108,27 +205,149 @@ export default function EditSitePage() {
     }
     setTemplateExtraValues(extras);
     setForm({
+      ...INITIAL_FORM,
       businessName: content.businessName ?? "",
       legalName: content.legalName ?? "",
       tagline: content.tagline ?? "",
       logo: content.logo ?? "",
       favicon: content.favicon ?? "",
+      metaTitle: content.metaTitle ?? "",
+      metaDescription: content.metaDescription ?? "",
+      keywords: content.keywords ?? "",
       shortDescription: content.shortDescription ?? "",
       about: content.about ?? "",
       yearEstablished: content.yearEstablished ?? "",
       address: content.address ?? "",
+      addressLocality: content.addressLocality ?? "",
+      addressRegion: content.addressRegion ?? "",
+      postalCode: content.postalCode ?? "",
       country: content.country ?? (data.country ?? ""),
       areaServed: content.areaServed ?? "",
       phone: content.phone ?? "",
+      phone2: content.phone2 ?? "",
       email: content.email ?? "",
       whatsApp: content.whatsApp ?? "",
+      contactFormSubject: content.contactFormSubject ?? "",
+      contactFormReplyToName: content.contactFormReplyToName ?? "",
+      contactPreference: content.contactPreference ?? "",
+      email2: content.email2 ?? "",
+      contactFormSuccessMessage: content.contactFormSuccessMessage ?? "",
+      priceRange: content.priceRange ?? "",
+      mapEmbedUrl: content.mapEmbedUrl ?? "",
+      directionsLabel: content.directionsLabel ?? "View on map",
       businessHours: content.businessHours ?? "",
       specialHours: content.specialHours ?? "",
       timezone: content.timezone ?? "",
       heroImage: content.heroImage ?? "",
       galleryUrls: Array.isArray(content.galleryUrls) ? content.galleryUrls.join("\n") : "",
+      galleryCaptions: Array.isArray(content.galleryCaptions) ? content.galleryCaptions.join("\n") : "",
       youtubeUrls: Array.isArray(content.youtubeUrls) ? content.youtubeUrls.join("\n") : "",
+      otherVideoUrls: Array.isArray(content.otherVideoUrls) ? content.otherVideoUrls.join("\n") : "",
+      bookingEnabled: content.bookingEnabled ? "true" : "false",
+      bookingSlotDuration: content.bookingSlotDuration ?? "",
+      bookingLeadTime: content.bookingLeadTime ?? "",
+      bookingServiceIds: Array.isArray(content.bookingServiceIds) ? content.bookingServiceIds.join(", ") : "",
+      facebookUrl: content.facebookUrl ?? "",
+      instagramUrl: content.instagramUrl ?? "",
+      youtubeChannelUrl: content.youtubeChannelUrl ?? "",
+      twitterUrl: content.twitterUrl ?? "",
+      linkedinUrl: content.linkedinUrl ?? "",
+      tiktokUrl: content.tiktokUrl ?? "",
+      otherLinkLabel: content.otherLinkLabel ?? "",
+      otherLinkUrl: content.otherLinkUrl ?? "",
+      ctaLabel: content.ctaLabel ?? "",
+      ctaUrl: content.ctaUrl ?? "",
+      cta2Label: content.cta2Label ?? "",
+      cta2Url: content.cta2Url ?? "",
+      cta3Label: content.cta3Label ?? "",
+      cta3Url: content.cta3Url ?? "",
+      paymentMethods: content.paymentMethods ?? "",
+      bookingUrl: content.bookingUrl ?? "",
+      showMapLink: String(content.showMapLink) === "false" ? "false" : "true",
+      announcementBar: content.announcementBar ?? "",
+      footerText: content.footerText ?? "",
+      customDomainDisplay: content.customDomainDisplay ?? "",
+      showBackToTop: content.showBackToTop ? "true" : "false",
+      newsletterLabel: content.newsletterLabel ?? "",
+      newsletterUrl: content.newsletterUrl ?? "",
+      hasNewsletter: content.hasNewsletter ? "true" : "false",
+      shareSectionTitle: content.shareSectionTitle ?? "",
+      robotsMeta: content.robotsMeta ?? "",
+      customCssUrl: content.customCssUrl ?? "",
+      themeColor: content.themeColor ?? "",
+      faqAsAccordion: content.faqAsAccordion ? "true" : "false",
+      servicesSectionTitle: content.servicesSectionTitle ?? "",
+      aboutSectionTitle: content.aboutSectionTitle ?? "",
+      contactSectionTitle: content.contactSectionTitle ?? "",
+      hoursSectionTitle: content.hoursSectionTitle ?? "",
+      gallerySectionTitle: content.gallerySectionTitle ?? "",
+      videosSectionTitle: content.videosSectionTitle ?? "",
+      otherVideosSectionTitle: content.otherVideosSectionTitle ?? "",
+      faqSectionTitle: content.faqSectionTitle ?? "",
+      testimonialsSectionTitle: content.testimonialsSectionTitle ?? "",
+      teamSectionTitle: content.teamSectionTitle ?? "",
+      certificationsSectionTitle: content.certificationsSectionTitle ?? "",
+      contactFormSectionTitle: content.contactFormSectionTitle ?? "",
+      socialSectionTitle: content.socialSectionTitle ?? "",
     });
+    const services = content.services;
+    const list: ServiceItem[] = Array.isArray(services)
+      ? services
+          .filter((s): s is Record<string, unknown> => s != null && typeof s === "object")
+          .map((s) => ({
+            name: typeof s.name === "string" ? s.name : "",
+            description: typeof s.description === "string" ? s.description : undefined,
+            image: typeof s.image === "string" ? s.image : undefined,
+            duration: typeof s.duration === "string" ? s.duration : undefined,
+            price: typeof s.price === "string" ? s.price : undefined,
+            category: typeof s.category === "string" ? (s.category.trim() || undefined) : undefined,
+          }))
+      : [];
+    setServicesList(list);
+    const rawFaq = content.faq;
+    const faqListLoaded: FaqItem[] = Array.isArray(rawFaq)
+      ? rawFaq
+          .filter((f): f is Record<string, unknown> => f != null && typeof f === "object")
+          .map((f) => ({
+            question: typeof f.question === "string" ? f.question : "",
+            answer: typeof f.answer === "string" ? f.answer : "",
+          }))
+      : [];
+    setFaqList(faqListLoaded);
+    const rawTestimonials = content.testimonials;
+    const testimonialsLoaded: TestimonialItem[] = Array.isArray(rawTestimonials)
+      ? rawTestimonials
+          .filter((t): t is Record<string, unknown> => t != null && typeof t === "object")
+          .map((t) => ({
+            quote: typeof t.quote === "string" ? t.quote : "",
+            author: typeof t.author === "string" ? t.author : undefined,
+            photo: typeof t.photo === "string" ? t.photo : undefined,
+            rating: typeof t.rating === "string" ? t.rating : undefined,
+          }))
+      : [];
+    setTestimonialsList(testimonialsLoaded);
+    const rawTeam = content.team;
+    const teamLoaded: TeamMemberItem[] = Array.isArray(rawTeam)
+      ? rawTeam
+          .filter((t): t is Record<string, unknown> => t != null && typeof t === "object")
+          .map((t) => ({
+            name: typeof t.name === "string" ? t.name : "",
+            role: typeof t.role === "string" ? t.role : undefined,
+            photo: typeof t.photo === "string" ? t.photo : undefined,
+            bio: typeof t.bio === "string" ? t.bio : undefined,
+          }))
+      : [];
+    setTeamList(teamLoaded);
+    const rawCertifications = content.certifications;
+    const certificationsLoaded: CertificationAwardItem[] = Array.isArray(rawCertifications)
+      ? rawCertifications
+          .filter((c): c is Record<string, unknown> => c != null && typeof c === "object")
+          .map((c) => ({
+            title: typeof c.title === "string" ? c.title : undefined,
+            image: typeof c.image === "string" ? c.image : undefined,
+          }))
+      : [];
+    setCertificationsList(certificationsLoaded);
     setLoading(false);
   }, [id]);
 
@@ -228,15 +447,44 @@ export default function EditSitePage() {
     setSaveStatus("idle");
     const locale = primaryLocale;
     const galleryUrls = (form.galleryUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+    const galleryCaptions = (form.galleryCaptions ?? "").split("\n").map((s) => s.trim());
     const youtubeUrls = (form.youtubeUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+    const otherVideoUrls = (form.otherVideoUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+    const bookingEnabled = form.bookingEnabled === "true";
+    const bookingSlotDuration = (form.bookingSlotDuration ?? "").trim() || undefined;
+    const bookingLeadTime = (form.bookingLeadTime ?? "").trim() || undefined;
+    const bookingServiceIds = (form.bookingServiceIds ?? "").split(",").map((s) => s.trim()).filter(Boolean);
     const base = site
       ? {
           ...((site.draft_content?.[locale] ?? site.draft_content?.en ?? {}) as Record<string, unknown>),
           ...form,
         }
       : { ...form };
+    const services = servicesList.filter((s) => (s.name ?? "").trim() !== "");
+    const faq = faqList.filter((f) => (f.question ?? "").trim() !== "");
+    const testimonials = testimonialsList.filter((t) => (t.quote ?? "").trim() !== "");
+    const team = teamList.filter((m) => (m.name ?? "").trim() !== "");
+    const certifications = certificationsList.filter(
+      (c) => ((c.title ?? "").trim() !== "" || (c.image ?? "").trim() !== "")
+    );
     const draftContentForPayload = {
-      [locale]: { ...base, ...templateExtraValues, galleryUrls, youtubeUrls },
+      [locale]: {
+        ...base,
+        ...templateExtraValues,
+        galleryUrls,
+        galleryCaptions,
+        youtubeUrls,
+        otherVideoUrls,
+        bookingEnabled,
+        bookingSlotDuration,
+        bookingLeadTime,
+        bookingServiceIds,
+        services,
+        faq,
+        testimonials,
+        team,
+        certifications,
+      },
     };
 
     if (isCreateMode) {
@@ -354,9 +602,38 @@ export default function EditSitePage() {
       }
       const locale = primaryLocale;
       const galleryUrls = (form.galleryUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+      const galleryCaptions = (form.galleryCaptions ?? "").split("\n").map((s) => s.trim());
       const youtubeUrls = (form.youtubeUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+      const otherVideoUrls = (form.otherVideoUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+      const bookingEnabled = form.bookingEnabled === "true";
+      const bookingSlotDuration = (form.bookingSlotDuration ?? "").trim() || undefined;
+      const bookingLeadTime = (form.bookingLeadTime ?? "").trim() || undefined;
+      const bookingServiceIds = (form.bookingServiceIds ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+      const services = servicesList.filter((s) => (s.name ?? "").trim() !== "");
+      const faq = faqList.filter((f) => (f.question ?? "").trim() !== "");
+      const testimonials = testimonialsList.filter((t) => (t.quote ?? "").trim() !== "");
+      const team = teamList.filter((m) => (m.name ?? "").trim() !== "");
+      const certifications = certificationsList.filter(
+        (c) => ((c.title ?? "").trim() !== "" || (c.image ?? "").trim() !== "")
+      );
       const draftContentForPayload = {
-        [locale]: { ...form, ...templateExtraValues, galleryUrls, youtubeUrls },
+        [locale]: {
+          ...form,
+          ...templateExtraValues,
+          galleryUrls,
+          galleryCaptions,
+          youtubeUrls,
+          otherVideoUrls,
+          bookingEnabled,
+          bookingSlotDuration,
+          bookingLeadTime,
+          bookingServiceIds,
+          services,
+          faq,
+          testimonials,
+          team,
+          certifications,
+        },
       };
       try {
         const createRes = await fetch("/api/dashboard/sites", {
@@ -403,13 +680,42 @@ export default function EditSitePage() {
     try {
       const locale = primaryLocale;
       const galleryUrls = (form.galleryUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+      const galleryCaptions = (form.galleryCaptions ?? "").split("\n").map((s) => s.trim());
       const youtubeUrls = (form.youtubeUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+      const otherVideoUrls = (form.otherVideoUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+      const bookingEnabled = form.bookingEnabled === "true";
+      const bookingSlotDuration = (form.bookingSlotDuration ?? "").trim() || undefined;
+      const bookingLeadTime = (form.bookingLeadTime ?? "").trim() || undefined;
+      const bookingServiceIds = (form.bookingServiceIds ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+      const services = servicesList.filter((s) => (s.name ?? "").trim() !== "");
+      const faq = faqList.filter((f) => (f.question ?? "").trim() !== "");
+      const testimonials = testimonialsList.filter((t) => (t.quote ?? "").trim() !== "");
+      const team = teamList.filter((m) => (m.name ?? "").trim() !== "");
+      const certifications = certificationsList.filter(
+        (c) => ((c.title ?? "").trim() !== "" || (c.image ?? "").trim() !== "")
+      );
       const base = {
         ...((site.draft_content?.[locale] ?? site.draft_content?.en ?? {}) as Record<string, unknown>),
         ...form,
       };
       const draftContentForPayload = {
-        [locale]: { ...base, ...templateExtraValues, galleryUrls, youtubeUrls },
+        [locale]: {
+          ...base,
+          ...templateExtraValues,
+          galleryUrls,
+          galleryCaptions,
+          youtubeUrls,
+          otherVideoUrls,
+          bookingEnabled,
+          bookingSlotDuration,
+          bookingLeadTime,
+          bookingServiceIds,
+          services,
+          faq,
+          testimonials,
+          team,
+          certifications,
+        },
       };
       const saveRes = await fetch(`/api/dashboard/sites/${id}`, {
         method: "PATCH",
@@ -537,58 +843,69 @@ export default function EditSitePage() {
         </div>
       )}
 
-      {/* Step progress */}
-      <div className="mb-8">
-        <p className="mb-2 text-sm font-medium text-gray-600">
-          Step {currentStep + 1} of {totalSteps}
-        </p>
-        <div className="flex items-center gap-0">
-          {WIZARD_STEPS.map((step, index) => {
-            const isActive = index === currentStep;
-            const isCompleted = index < currentStep;
-            return (
-              <div key={step.id} className="flex flex-1 items-center">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(index)}
-                  className="flex flex-1 flex-col items-center gap-1 py-2 text-left sm:flex-row sm:justify-center"
-                >
-                  <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
-                      isActive
-                        ? "bg-gray-900 text-white"
-                        : isCompleted
-                          ? "bg-green-600 text-white"
-                          : "bg-gray-200 text-gray-600"
-                    }`}
-                  >
-                    {isCompleted ? "✓" : index + 1}
-                  </span>
-                  <span
-                    className={`text-sm font-medium ${
-                      isActive ? "text-gray-900" : isCompleted ? "text-green-700" : "text-gray-500"
-                    }`}
-                  >
-                    {step.label}
-                  </span>
-                </button>
-                {index < totalSteps - 1 && (
-                  <div
-                    className={`h-0.5 w-8 flex-shrink-0 sm:w-16 ${
-                      isCompleted ? "bg-green-600" : "bg-gray-200"
-                    }`}
-                    aria-hidden
-                  />
-                )}
-              </div>
-            );
-          })}
+      {/* Step progress: vertical list (sidebar on md+, stacked on small) */}
+      <div className="mb-8 flex flex-col gap-6 md:flex-row md:gap-8">
+        <div className="flex-shrink-0 md:w-52">
+          <p className="mb-2 text-sm font-medium text-gray-600">
+            Step {currentStep + 1} of {totalSteps}
+          </p>
+          <label htmlFor="wizard-step-jump" className="sr-only">
+            Jump to step
+          </label>
+          <select
+            id="wizard-step-jump"
+            value={currentStep}
+            onChange={(e) => setCurrentStep(Number(e.target.value))}
+            className="mb-3 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500 md:sr-only"
+            aria-label="Jump to step"
+          >
+            {WIZARD_STEPS.map((step, index) => (
+              <option key={step.id} value={index}>
+                {index + 1}. {step.label}
+              </option>
+            ))}
+          </select>
+          <nav aria-label="Wizard steps" className="flex flex-col gap-0">
+            {WIZARD_STEPS.map((step, index) => {
+              const isActive = index === currentStep;
+              const isCompleted = index < currentStep;
+              const isLast = index === WIZARD_STEPS.length - 1;
+              return (
+                <div key={step.id} className="flex items-stretch">
+                  <div className="flex flex-col items-center">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(index)}
+                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-colors w-full ${
+                        isActive
+                          ? "bg-gray-900 text-white ring-2 ring-gray-900 ring-offset-2"
+                          : isCompleted
+                            ? "bg-green-100 text-green-800 hover:bg-green-200"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                      title={step.label}
+                    >
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs">
+                        {isCompleted ? "✓" : index + 1}
+                      </span>
+                      <span className="truncate">{step.label}</span>
+                    </button>
+                    {!isLast && (
+                      <div
+                        className={`h-2 w-0.5 shrink-0 ${isCompleted ? "bg-green-300" : "bg-gray-200"}`}
+                        aria-hidden
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </nav>
         </div>
-      </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
-        {/* Step content: scrolls into view when step changes */}
-        <div ref={stepContentRef}>
+        <form onSubmit={handleSave} className="min-w-0 flex-1 space-y-6">
+          {/* Step content: scrolls into view when step changes */}
+          <div ref={stepContentRef}>
         {/* Step 0: Site settings */}
         {currentStep === 0 && (
           <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -956,6 +1273,135 @@ export default function EditSitePage() {
                 placeholder="e.g. Since 2010"
               />
             </div>
+            <div className="sm:col-span-2 mt-4 pt-4 border-t border-gray-200">
+              <p className="text-sm font-medium text-gray-700 mb-2">SEO (optional)</p>
+              <p className="text-xs text-gray-500 mb-3">Override defaults for search and social sharing.</p>
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="metaTitle" className="block text-sm font-medium text-gray-600">Meta title</label>
+                  <input
+                    id="metaTitle"
+                    value={form.metaTitle ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, metaTitle: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                    placeholder="Defaults to business name + tagline"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="metaDescription" className="block text-sm font-medium text-gray-600">Meta description</label>
+                  <input
+                    id="metaDescription"
+                    value={form.metaDescription ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, metaDescription: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                    placeholder="Defaults to short description"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="keywords" className="block text-sm font-medium text-gray-600">Keywords</label>
+                  <input
+                    id="keywords"
+                    value={form.keywords ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, keywords: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                    placeholder="Comma-separated (e.g. salon, haircut, Mumbai)"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="priceRange" className="block text-sm font-medium text-gray-600">Price range (SEO)</label>
+                  <input
+                    id="priceRange"
+                    value={form.priceRange ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, priceRange: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                    placeholder="e.g. $$ or $ to $$$"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Shown in search results (e.g. $ to $$$)</p>
+                </div>
+                <div>
+                  <label htmlFor="robotsMeta" className="block text-sm font-medium text-gray-600">Robots meta <span className="text-gray-500">(optional)</span></label>
+                  <input id="robotsMeta" value={form.robotsMeta ?? ""} onChange={(e) => setForm((f) => ({ ...f, robotsMeta: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900" placeholder="e.g. noindex, nofollow" />
+                </div>
+                <div>
+                  <label htmlFor="customCssUrl" className="block text-sm font-medium text-gray-600">Custom CSS URL <span className="text-gray-500">(optional)</span></label>
+                  <input id="customCssUrl" type="url" value={form.customCssUrl ?? ""} onChange={(e) => setForm((f) => ({ ...f, customCssUrl: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900" placeholder="https://..." />
+                </div>
+              </div>
+            </div>
+            <div className="sm:col-span-2 mt-4 pt-4 border-t border-gray-200">
+              <p className="text-sm font-medium text-gray-700 mb-2">Announcement &amp; footer</p>
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="announcementBar" className="block text-sm font-medium text-gray-600">Announcement bar <span className="text-gray-500">(optional)</span></label>
+                  <input
+                    id="announcementBar"
+                    value={form.announcementBar ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, announcementBar: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                    placeholder="e.g. Closed for holidays Dec 24–26"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="footerText" className="block text-sm font-medium text-gray-600">Footer text</label>
+                  <input
+                    id="footerText"
+                    value={form.footerText ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, footerText: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                    placeholder="e.g. © 2024 Business Name"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="customDomainDisplay" className="block text-sm font-medium text-gray-600">Custom domain text <span className="text-gray-500">(optional)</span></label>
+                  <input id="customDomainDisplay" value={form.customDomainDisplay ?? ""} onChange={(e) => setForm((f) => ({ ...f, customDomainDisplay: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900" placeholder="e.g. Visit us at example.com" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="showBackToTop" checked={form.showBackToTop === "true"} onChange={(e) => setForm((f) => ({ ...f, showBackToTop: e.target.checked ? "true" : "false" }))} className="rounded border-gray-300" />
+                  <label htmlFor="showBackToTop" className="text-sm font-medium text-gray-700">Show &quot;Back to top&quot; link</label>
+                </div>
+                <div className="border-t border-gray-100 pt-3 mt-2">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Newsletter</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input type="checkbox" id="hasNewsletter" checked={form.hasNewsletter === "true"} onChange={(e) => setForm((f) => ({ ...f, hasNewsletter: e.target.checked ? "true" : "false" }))} className="rounded border-gray-300" />
+                    <label htmlFor="hasNewsletter" className="text-sm text-gray-600">Show newsletter section</label>
+                  </div>
+                  <div className="space-y-2">
+                    <input id="newsletterLabel" value={form.newsletterLabel ?? ""} onChange={(e) => setForm((f) => ({ ...f, newsletterLabel: e.target.value }))} className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 text-sm" placeholder="Newsletter label (optional)" />
+                    <input id="newsletterUrl" type="url" value={form.newsletterUrl ?? ""} onChange={(e) => setForm((f) => ({ ...f, newsletterUrl: e.target.value }))} className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 text-sm" placeholder="Sign-up URL" />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="shareSectionTitle" className="block text-sm font-medium text-gray-600">Share section title <span className="text-gray-500">(optional)</span></label>
+                  <input id="shareSectionTitle" value={form.shareSectionTitle ?? ""} onChange={(e) => setForm((f) => ({ ...f, shareSectionTitle: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900" placeholder="e.g. Share this page" />
+                </div>
+                <div>
+                  <label htmlFor="themeColor" className="block text-sm font-medium text-gray-600">Theme color (hex)</label>
+                  <input
+                    id="themeColor"
+                    value={form.themeColor ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, themeColor: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                    placeholder="e.g. #0f172a"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="sm:col-span-2 mt-4 pt-4 border-t border-gray-200">
+              <p className="text-sm font-medium text-gray-700 mb-2">Section titles <span className="text-gray-500">(optional overrides)</span></p>
+              <p className="text-xs text-gray-500 mb-3">Override default section headings on your site.</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><label htmlFor="servicesSectionTitle" className="block text-xs text-gray-600">Services</label><input id="servicesSectionTitle" value={form.servicesSectionTitle ?? ""} onChange={(e) => setForm((f) => ({ ...f, servicesSectionTitle: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900" placeholder="What we offer" /></div>
+                <div><label htmlFor="aboutSectionTitle" className="block text-xs text-gray-600">About</label><input id="aboutSectionTitle" value={form.aboutSectionTitle ?? ""} onChange={(e) => setForm((f) => ({ ...f, aboutSectionTitle: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900" placeholder="About" /></div>
+                <div><label htmlFor="contactSectionTitle" className="block text-xs text-gray-600">Contact</label><input id="contactSectionTitle" value={form.contactSectionTitle ?? ""} onChange={(e) => setForm((f) => ({ ...f, contactSectionTitle: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900" placeholder="Contact" /></div>
+                <div><label htmlFor="hoursSectionTitle" className="block text-xs text-gray-600">Hours</label><input id="hoursSectionTitle" value={form.hoursSectionTitle ?? ""} onChange={(e) => setForm((f) => ({ ...f, hoursSectionTitle: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900" placeholder="Hours" /></div>
+                <div><label htmlFor="faqSectionTitle" className="block text-xs text-gray-600">FAQ</label><input id="faqSectionTitle" value={form.faqSectionTitle ?? ""} onChange={(e) => setForm((f) => ({ ...f, faqSectionTitle: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900" placeholder="FAQ" /></div>
+                <div><label htmlFor="contactFormSectionTitle" className="block text-xs text-gray-600">Contact form</label><input id="contactFormSectionTitle" value={form.contactFormSectionTitle ?? ""} onChange={(e) => setForm((f) => ({ ...f, contactFormSectionTitle: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900" placeholder="Contact us" /></div>
+                <div className="sm:col-span-2 flex items-center gap-2">
+                  <input type="checkbox" id="faqAsAccordion" checked={form.faqAsAccordion === "true"} onChange={(e) => setForm((f) => ({ ...f, faqAsAccordion: e.target.checked ? "true" : "false" }))} className="rounded border-gray-300" />
+                  <label htmlFor="faqAsAccordion" className="text-sm text-gray-600">Show FAQ as accordion (expand/collapse)</label>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         )}
@@ -978,6 +1424,22 @@ export default function EditSitePage() {
                 onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
               />
+            </div>
+            <div>
+              <label htmlFor="addressLocality" className="block text-sm font-medium text-gray-700">Locality / City <span className="text-gray-500">(optional)</span></label>
+              <input id="addressLocality" value={form.addressLocality ?? ""} onChange={(e) => setForm((f) => ({ ...f, addressLocality: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900" placeholder="e.g. Mumbai" />
+            </div>
+            <div>
+              <label htmlFor="addressRegion" className="block text-sm font-medium text-gray-700">Region / State <span className="text-gray-500">(optional)</span></label>
+              <input id="addressRegion" value={form.addressRegion ?? ""} onChange={(e) => setForm((f) => ({ ...f, addressRegion: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900" placeholder="e.g. Maharashtra" />
+            </div>
+            <div>
+              <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700">Postal code <span className="text-gray-500">(optional)</span></label>
+              <input id="postalCode" value={form.postalCode ?? ""} onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900" placeholder="e.g. 400001" />
+            </div>
+            <div>
+              <label htmlFor="directionsLabel" className="block text-sm font-medium text-gray-700">Map link label</label>
+              <input id="directionsLabel" value={form.directionsLabel ?? "View on map"} onChange={(e) => setForm((f) => ({ ...f, directionsLabel: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900" placeholder="View on map" />
             </div>
             <div>
               <label htmlFor="country" className="block text-sm font-medium text-gray-700">
@@ -1032,6 +1494,30 @@ export default function EditSitePage() {
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
               />
             </div>
+            <div>
+              <label htmlFor="email2" className="block text-sm font-medium text-gray-700">
+                Email 2 <span className="text-gray-500">(optional)</span>
+              </label>
+              <input
+                id="email2"
+                type="email"
+                value={form.email2 ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, email2: e.target.value }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+              />
+            </div>
+            <div>
+              <label htmlFor="phone2" className="block text-sm font-medium text-gray-700">
+                Phone 2 <span className="text-gray-500">(optional)</span>
+              </label>
+              <input
+                id="phone2"
+                type="tel"
+                value={form.phone2 ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, phone2: e.target.value }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+              />
+            </div>
             <div className="sm:col-span-2">
               <label htmlFor="whatsApp" className="block text-sm font-medium text-gray-700">
                 WhatsApp <span className="text-gray-500">(optional)</span>
@@ -1045,6 +1531,218 @@ export default function EditSitePage() {
                 placeholder="https://wa.me/919876543210 or number"
               />
             </div>
+          </div>
+          <div className="mt-6 border-t border-gray-200 pt-6">
+            <h3 className="mb-3 text-base font-medium text-gray-900">Social links</h3>
+            <p className="mb-4 text-sm text-gray-500">
+              Optional links to your social profiles. Shown as &quot;Follow us&quot; on your site.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="facebookUrl" className="block text-sm font-medium text-gray-700">Facebook</label>
+                <input
+                  id="facebookUrl"
+                  type="url"
+                  value={form.facebookUrl ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, facebookUrl: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="https://facebook.com/..."
+                />
+              </div>
+              <div>
+                <label htmlFor="instagramUrl" className="block text-sm font-medium text-gray-700">Instagram</label>
+                <input
+                  id="instagramUrl"
+                  type="url"
+                  value={form.instagramUrl ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, instagramUrl: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="https://instagram.com/..."
+                />
+              </div>
+              <div>
+                <label htmlFor="youtubeChannelUrl" className="block text-sm font-medium text-gray-700">YouTube channel</label>
+                <input
+                  id="youtubeChannelUrl"
+                  type="url"
+                  value={form.youtubeChannelUrl ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, youtubeChannelUrl: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="https://youtube.com/@..."
+                />
+              </div>
+              <div>
+                <label htmlFor="twitterUrl" className="block text-sm font-medium text-gray-700">Twitter / X</label>
+                <input
+                  id="twitterUrl"
+                  type="url"
+                  value={form.twitterUrl ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, twitterUrl: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="https://x.com/..."
+                />
+              </div>
+              <div>
+                <label htmlFor="linkedinUrl" className="block text-sm font-medium text-gray-700">LinkedIn</label>
+                <input
+                  id="linkedinUrl"
+                  type="url"
+                  value={form.linkedinUrl ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, linkedinUrl: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="https://linkedin.com/company/..."
+                />
+              </div>
+              <div>
+                <label htmlFor="tiktokUrl" className="block text-sm font-medium text-gray-700">TikTok</label>
+                <input
+                  id="tiktokUrl"
+                  type="url"
+                  value={form.tiktokUrl ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, tiktokUrl: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="https://tiktok.com/@..."
+                />
+              </div>
+              <div>
+                <label htmlFor="otherLinkLabel" className="block text-sm font-medium text-gray-700">Other link (label)</label>
+                <input
+                  id="otherLinkLabel"
+                  type="text"
+                  value={form.otherLinkLabel ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, otherLinkLabel: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="e.g. Blog"
+                />
+              </div>
+              <div>
+                <label htmlFor="otherLinkUrl" className="block text-sm font-medium text-gray-700">Other link (URL)</label>
+                <input
+                  id="otherLinkUrl"
+                  type="url"
+                  value={form.otherLinkUrl ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, otherLinkUrl: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 border-t border-gray-200 pt-6">
+            <h3 className="mb-3 text-base font-medium text-gray-900">Call to action button</h3>
+            <p className="mb-4 text-sm text-gray-500">
+              Optional primary button on your site (e.g. &quot;Book now&quot;, &quot;Call now&quot;). Both label and URL are required to show it.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="ctaLabel" className="block text-sm font-medium text-gray-700">Button label</label>
+                <input
+                  id="ctaLabel"
+                  type="text"
+                  value={form.ctaLabel ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, ctaLabel: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="e.g. Book now"
+                />
+              </div>
+              <div>
+                <label htmlFor="ctaUrl" className="block text-sm font-medium text-gray-700">Button URL</label>
+                <input
+                  id="ctaUrl"
+                  type="url"
+                  value={form.ctaUrl ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, ctaUrl: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="https://... or tel:+1234567890"
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="cta3Label" className="block text-sm font-medium text-gray-700">Third button label <span className="text-gray-500">(optional)</span></label>
+                  <input id="cta3Label" type="text" value={form.cta3Label ?? ""} onChange={(e) => setForm((f) => ({ ...f, cta3Label: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900" placeholder="e.g. View menu" />
+                </div>
+                <div>
+                  <label htmlFor="cta3Url" className="block text-sm font-medium text-gray-700">Third button URL</label>
+                  <input id="cta3Url" type="url" value={form.cta3Url ?? ""} onChange={(e) => setForm((f) => ({ ...f, cta3Url: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900" placeholder="https://..." />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 border-t border-gray-200 pt-6">
+            <h3 className="mb-3 text-base font-medium text-gray-900">Contact form</h3>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="contactFormSubject" className="block text-sm font-medium text-gray-700">
+                  Default subject line <span className="text-gray-500">(optional)</span>
+                </label>
+                <input
+                  id="contactFormSubject"
+                  type="text"
+                  value={form.contactFormSubject ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, contactFormSubject: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="e.g. Website enquiry"
+                />
+              </div>
+              <div>
+                <label htmlFor="contactFormReplyToName" className="block text-sm font-medium text-gray-700">Reply-to name <span className="text-gray-500">(optional)</span></label>
+                <input id="contactFormReplyToName" type="text" value={form.contactFormReplyToName ?? ""} onChange={(e) => setForm((f) => ({ ...f, contactFormReplyToName: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900" placeholder="Name shown when replying to form" />
+              </div>
+              <div>
+                <label htmlFor="contactPreference" className="block text-sm font-medium text-gray-700">
+                  Preferred contact <span className="text-gray-500">(optional)</span>
+                </label>
+                <input
+                  id="contactPreference"
+                  type="text"
+                  value={form.contactPreference ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, contactPreference: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="e.g. phone, email, WhatsApp"
+                />
+              </div>
+              <div>
+                <label htmlFor="contactFormSuccessMessage" className="block text-sm font-medium text-gray-700">
+                  Success message after submit <span className="text-gray-500">(optional)</span>
+                </label>
+                <input
+                  id="contactFormSuccessMessage"
+                  type="text"
+                  value={form.contactFormSuccessMessage ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, contactFormSuccessMessage: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="e.g. Thanks! We'll reply within 24 hours."
+                />
+              </div>
+              <div>
+                <label htmlFor="mapEmbedUrl" className="block text-sm font-medium text-gray-700">
+                  Map embed URL <span className="text-gray-500">(optional)</span>
+                </label>
+                <input
+                  id="mapEmbedUrl"
+                  type="url"
+                  value={form.mapEmbedUrl ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, mapEmbedUrl: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="https://www.google.com/maps/embed?pb=..."
+                />
+                <p className="mt-1 text-xs text-gray-500">From Google Maps: Share → Embed a map → copy src URL</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 border-t border-gray-200 pt-6">
+            <h3 className="mb-3 text-base font-medium text-gray-900">Payment methods</h3>
+            <p className="mb-2 text-sm text-gray-500">
+              Optional line shown on your site (e.g. &quot;We accept Cash, Card, UPI.&quot;).
+            </p>
+            <input
+              id="paymentMethods"
+              type="text"
+              value={form.paymentMethods ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, paymentMethods: e.target.value }))}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+              placeholder="e.g. We accept Cash, Card, UPI"
+            />
           </div>
         </div>
         )}
@@ -1099,14 +1797,519 @@ export default function EditSitePage() {
               />
             </div>
           </div>
+          <div className="mt-6 border-t border-gray-200 pt-6">
+            <h3 className="mb-3 text-base font-medium text-gray-900">Bookings (optional)</h3>
+            <p className="mb-4 text-sm text-gray-500">
+              Show &quot;Book online&quot; on your site. Slot duration and lead time are displayed when set.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex items-center gap-2">
+                <input
+                  id="bookingEnabled"
+                  type="checkbox"
+                  checked={form.bookingEnabled === "true"}
+                  onChange={(e) => setForm((f) => ({ ...f, bookingEnabled: e.target.checked ? "true" : "false" }))}
+                  className="rounded border-gray-300"
+                />
+                <label htmlFor="bookingEnabled" className="text-sm font-medium text-gray-700">Booking enabled</label>
+              </div>
+              <div>
+                <label htmlFor="bookingSlotDuration" className="block text-sm font-medium text-gray-700">Slot duration</label>
+                <input
+                  id="bookingSlotDuration"
+                  type="text"
+                  value={form.bookingSlotDuration ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, bookingSlotDuration: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="e.g. 30 min"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="bookingUrl" className="block text-sm font-medium text-gray-700">Booking URL <span className="text-gray-500">(optional)</span></label>
+                <input
+                  id="bookingUrl"
+                  type="url"
+                  value={form.bookingUrl ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, bookingUrl: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="e.g. https://calendly.com/..."
+                />
+                <p className="mt-1 text-xs text-gray-500">Link for &quot;Book now&quot; when booking is enabled</p>
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="bookingLeadTime" className="block text-sm font-medium text-gray-700">Lead time</label>
+                <input
+                  id="bookingLeadTime"
+                  type="text"
+                  value={form.bookingLeadTime ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, bookingLeadTime: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="e.g. Book at least 2 hours ahead"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="bookingServiceIds" className="block text-sm font-medium text-gray-700">Services that can be booked <span className="text-gray-500">(optional, comma-separated names; leave empty for all)</span></label>
+                <input
+                  id="bookingServiceIds"
+                  type="text"
+                  value={form.bookingServiceIds ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, bookingServiceIds: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="e.g. Haircut, Consultation"
+                />
+              </div>
+            </div>
+          </div>
         </div>
         )}
 
-        {/* Step 6: Media */}
+        {/* Step 6: Services */}
         {currentStep === 6 && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <p className="mb-2 text-sm font-medium text-gray-500">
             Step 7 of {totalSteps} — {WIZARD_STEPS[6].label}
+          </p>
+          <h2 className="mb-4 text-lg font-medium text-gray-900">Services</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            List what you offer (e.g. services, menu items, or products). Name is required; others optional.
+          </p>
+          <div className="space-y-4">
+            {servicesList.map((item, index) => (
+              <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Item {index + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => setServicesList((prev) => prev.filter((_, i) => i !== index))}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Name</label>
+                    <input
+                      type="text"
+                      value={item.name ?? ""}
+                      onChange={(e) =>
+                        setServicesList((prev) =>
+                          prev.map((s, i) => (i === index ? { ...s, name: e.target.value } : s))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="e.g. Haircut, Consultation"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Category <span className="text-gray-500">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={item.category ?? ""}
+                      onChange={(e) =>
+                        setServicesList((prev) =>
+                          prev.map((s, i) => (i === index ? { ...s, category: e.target.value.trim() || undefined } : s))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="e.g. Hair, Nails"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Description <span className="text-gray-500">(optional)</span></label>
+                    <textarea
+                      rows={2}
+                      value={item.description ?? ""}
+                      onChange={(e) =>
+                        setServicesList((prev) =>
+                          prev.map((s, i) => (i === index ? { ...s, description: e.target.value } : s))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="Short description"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Image URL <span className="text-gray-500">(optional)</span></label>
+                    <input
+                      type="url"
+                      value={item.image ?? ""}
+                      onChange={(e) =>
+                        setServicesList((prev) =>
+                          prev.map((s, i) => (i === index ? { ...s, image: e.target.value } : s))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Duration <span className="text-gray-500">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={item.duration ?? ""}
+                      onChange={(e) =>
+                        setServicesList((prev) =>
+                          prev.map((s, i) => (i === index ? { ...s, duration: e.target.value } : s))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="e.g. 30 min"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Price <span className="text-gray-500">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={item.price ?? ""}
+                      onChange={(e) =>
+                        setServicesList((prev) =>
+                          prev.map((s, i) => (i === index ? { ...s, price: e.target.value } : s))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="e.g. From $20 or Contact for price"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setServicesList((prev) => [...prev, { name: "" }])}
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Add service / item
+            </button>
+          </div>
+        </div>
+        )}
+
+        {/* Step 7: FAQ */}
+        {currentStep === 7 && (
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <p className="mb-2 text-sm font-medium text-gray-500">
+            Step 8 of {totalSteps} — {WIZARD_STEPS[7].label}
+          </p>
+          <h2 className="mb-4 text-lg font-medium text-gray-900">FAQ</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Add common questions and answers for your visitors. Question is required.
+          </p>
+          <div className="space-y-4">
+            {faqList.map((item, index) => (
+              <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Q&amp;A {index + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFaqList((prev) => prev.filter((_, i) => i !== index))}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="grid gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Question</label>
+                    <input
+                      type="text"
+                      value={item.question ?? ""}
+                      onChange={(e) =>
+                        setFaqList((prev) =>
+                          prev.map((f, i) => (i === index ? { ...f, question: e.target.value } : f))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="e.g. What are your opening hours?"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Answer</label>
+                    <textarea
+                      rows={3}
+                      value={item.answer ?? ""}
+                      onChange={(e) =>
+                        setFaqList((prev) =>
+                          prev.map((f, i) => (i === index ? { ...f, answer: e.target.value } : f))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="e.g. We are open Mon–Fri 9–6, Sat 10–4."
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setFaqList((prev) => [...prev, { question: "", answer: "" }])}
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Add question
+            </button>
+          </div>
+        </div>
+        )}
+
+        {/* Step 8: Testimonials */}
+        {currentStep === 8 && (
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <p className="mb-2 text-sm font-medium text-gray-500">
+            Step 9 of {totalSteps} — {WIZARD_STEPS[8].label}
+          </p>
+          <h2 className="mb-4 text-lg font-medium text-gray-900">Testimonials</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Add customer quotes for social proof. Quote is required; author, photo and rating are optional.
+          </p>
+          <div className="space-y-4">
+            {testimonialsList.map((item, index) => (
+              <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Testimonial {index + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => setTestimonialsList((prev) => prev.filter((_, i) => i !== index))}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Quote</label>
+                    <textarea
+                      rows={3}
+                      value={item.quote ?? ""}
+                      onChange={(e) =>
+                        setTestimonialsList((prev) =>
+                          prev.map((t, i) => (i === index ? { ...t, quote: e.target.value } : t))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="What did the customer say?"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Author <span className="text-gray-500">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={item.author ?? ""}
+                      onChange={(e) =>
+                        setTestimonialsList((prev) =>
+                          prev.map((t, i) => (i === index ? { ...t, author: e.target.value } : t))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="e.g. Jane D."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Photo URL <span className="text-gray-500">(optional)</span></label>
+                    <input
+                      type="url"
+                      value={item.photo ?? ""}
+                      onChange={(e) =>
+                        setTestimonialsList((prev) =>
+                          prev.map((t, i) => (i === index ? { ...t, photo: e.target.value } : t))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Rating <span className="text-gray-500">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={item.rating ?? ""}
+                      onChange={(e) =>
+                        setTestimonialsList((prev) =>
+                          prev.map((t, i) => (i === index ? { ...t, rating: e.target.value } : t))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="e.g. 5 or 5 stars"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setTestimonialsList((prev) => [...prev, { quote: "" }])}
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Add testimonial
+            </button>
+          </div>
+        </div>
+        )}
+
+        {/* Step 9: Team */}
+        {currentStep === 9 && (
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <p className="mb-2 text-sm font-medium text-gray-500">
+            Step 10 of {totalSteps} — {WIZARD_STEPS[9].label}
+          </p>
+          <h2 className="mb-4 text-lg font-medium text-gray-900">Meet the team</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Add team or staff members. Name is required; role, photo and short bio are optional.
+          </p>
+          <div className="space-y-4">
+            {teamList.map((item, index) => (
+              <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Team member {index + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => setTeamList((prev) => prev.filter((_, i) => i !== index))}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Name</label>
+                    <input
+                      type="text"
+                      value={item.name ?? ""}
+                      onChange={(e) =>
+                        setTeamList((prev) =>
+                          prev.map((m, i) => (i === index ? { ...m, name: e.target.value } : m))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="e.g. Jane Smith"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Role <span className="text-gray-500">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={item.role ?? ""}
+                      onChange={(e) =>
+                        setTeamList((prev) =>
+                          prev.map((m, i) => (i === index ? { ...m, role: e.target.value } : m))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="e.g. Stylist, Manager"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Photo URL <span className="text-gray-500">(optional)</span></label>
+                    <input
+                      type="url"
+                      value={item.photo ?? ""}
+                      onChange={(e) =>
+                        setTeamList((prev) =>
+                          prev.map((m, i) => (i === index ? { ...m, photo: e.target.value } : m))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Short bio <span className="text-gray-500">(optional)</span></label>
+                    <textarea
+                      rows={2}
+                      value={item.bio ?? ""}
+                      onChange={(e) =>
+                        setTeamList((prev) =>
+                          prev.map((m, i) => (i === index ? { ...m, bio: e.target.value } : m))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="A brief description or specialty."
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setTeamList((prev) => [...prev, { name: "" }])}
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Add team member
+            </button>
+          </div>
+        </div>
+        )}
+
+        {/* Step 10: Certifications */}
+        {currentStep === 10 && (
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <p className="mb-2 text-sm font-medium text-gray-500">
+            Step 11 of {totalSteps} — {WIZARD_STEPS[10].label}
+          </p>
+          <h2 className="mb-4 text-lg font-medium text-gray-900">Certifications & awards</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Add certifications, awards or badges. Provide a title (text) and/or an image URL for each.
+          </p>
+          <div className="space-y-4">
+            {certificationsList.map((item, index) => (
+              <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Item {index + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCertificationsList((prev) => prev.filter((_, i) => i !== index))}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Title / name <span className="text-gray-500">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={item.title ?? ""}
+                      onChange={(e) =>
+                        setCertificationsList((prev) =>
+                          prev.map((c, i) => (i === index ? { ...c, title: e.target.value } : c))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="e.g. ISO 9001 Certified, Best Salon 2024"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Image URL <span className="text-gray-500">(optional)</span></label>
+                    <input
+                      type="url"
+                      value={item.image ?? ""}
+                      onChange={(e) =>
+                        setCertificationsList((prev) =>
+                          prev.map((c, i) => (i === index ? { ...c, image: e.target.value } : c))
+                        )
+                      }
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900"
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setCertificationsList((prev) => [...prev, {}])}
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Add certification or award
+            </button>
+          </div>
+        </div>
+        )}
+
+        {/* Step 11: Media */}
+        {currentStep === 11 && (
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <p className="mb-2 text-sm font-medium text-gray-500">
+            Step 12 of {totalSteps} — {WIZARD_STEPS[11].label}
           </p>
           <h2 className="mb-4 text-lg font-medium text-gray-900">Media</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -1137,6 +2340,19 @@ export default function EditSitePage() {
               />
             </div>
             <div className="sm:col-span-2">
+              <label htmlFor="galleryCaptions" className="block text-sm font-medium text-gray-700">
+                Gallery captions <span className="text-gray-500">(optional, one per line, same order as URLs)</span>
+              </label>
+              <textarea
+                id="galleryCaptions"
+                rows={3}
+                value={form.galleryCaptions ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, galleryCaptions: e.target.value }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 text-sm"
+                placeholder="Caption for each image, one per line"
+              />
+            </div>
+            <div className="sm:col-span-2">
               <label htmlFor="youtubeUrls" className="block text-sm font-medium text-gray-700">
                 YouTube video URLs <span className="text-gray-500">(optional, one per line)</span>
               </label>
@@ -1147,6 +2363,19 @@ export default function EditSitePage() {
                 onChange={(e) => setForm((f) => ({ ...f, youtubeUrls: e.target.value }))}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 font-mono text-sm"
                 placeholder="https://www.youtube.com/watch?v=..."
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="otherVideoUrls" className="block text-sm font-medium text-gray-700">
+                Other video URLs <span className="text-gray-500">(e.g. Vimeo, one per line)</span>
+              </label>
+              <textarea
+                id="otherVideoUrls"
+                rows={2}
+                value={form.otherVideoUrls ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, otherVideoUrls: e.target.value }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 font-mono text-sm"
+                placeholder="https://vimeo.com/..."
               />
             </div>
           </div>
@@ -1222,6 +2451,7 @@ export default function EditSitePage() {
           </div>
         </div>
       </form>
+      </div>
 
       {site?.published_at && (
         <div className="mt-8">
