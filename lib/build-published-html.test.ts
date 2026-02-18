@@ -1,5 +1,5 @@
 /**
- * Unit tests for published site HTML builder (EJS template + meta).
+ * Unit tests for published site HTML builder (Workers-safe template + meta).
  */
 import { describe, it, expect } from "vitest";
 import {

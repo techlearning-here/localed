@@ -1,6 +1,6 @@
 /**
- * EJS template for published site static HTML. Edit published-site-template.ejs and sync here if needed,
- * or use fs.readFileSync in Node to load the .ejs file at runtime.
+ * Legacy EJS template string (reference only). The live published HTML is built in
+ * build-published-html.ts via renderPublishedTemplate() (Workers-safe, no eval).
  */
 export const PUBLISHED_SITE_TEMPLATE = `<!DOCTYPE html>
 <html lang="en">
