@@ -89,7 +89,7 @@ Published site pages are **static HTML** from the EJS template. The app stores t
 
 **Recreating from the table:** Use `buildPublishedPageHtmlFromSite(site, baseUrl)` then upload to Supabase (or local).
 
-**Local testing:** When Supabase isn’t used for publish (e.g. `next dev`), files go to **`public/published-sites/sites/{id}/index.html`**. Set `PUBLISHED_SITES_CDN_URL=http://localhost:3000/published-sites` and optionally `PUBLISHED_SITES_LOCAL_DIR=public/published-sites`. `public/published-sites` is in `.gitignore`.
+**Local (next dev and preview):** When `NEXT_PUBLIC_SUPABASE_URL` is set, publish **always uses Supabase Storage** (same as production). Set **`SUPABASE_SERVICE_ROLE_KEY`** in `.env.local` (and in `.dev.vars` for `npm run preview`) so uploads work. The local filesystem (`public/published-sites`) is only used when Supabase is not configured at all (no `NEXT_PUBLIC_SUPABASE_URL`).
 
 ### Where to set them
 
@@ -118,6 +118,36 @@ Open **http://localhost:8787**. To use the **dashboard without login** (like `np
 - Restart preview after creating or changing `.dev.vars`.
 
 Stop the server with Ctrl+C.
+
+### Manual testing from local build (including Publish)
+
+To verify the **Cloudflare build** (including the publish route) before deploying:
+
+1. **Env for preview**  
+   Create or update **`.dev.vars`** with at least:
+   - `LOCALED_DEV_OWNER_ID` — a Supabase user UUID (owner of test sites)
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`  
+   So the dashboard and publish (Supabase Storage upload) work at request time.
+
+2. **Build and run**  
+   ```bash
+   npm run preview
+   ```  
+   Open **http://localhost:8787**.  
+   Use **`npm run preview:env`** if you want build-time vars (e.g. `NEXT_PUBLIC_*`) taken from `.env.local`; the Worker at runtime still uses **`.dev.vars`**.
+
+3. **Test in the browser**  
+   Go to the dashboard (no login if `LOCALED_DEV_OWNER_ID` is set), open or create a site, then click **Publish**. Confirm the site shows as published and the public page loads.
+
+4. **Optional: call the publish API with curl**  
+   Use a real site ID that you own (same owner as `LOCALED_DEV_OWNER_ID`):
+   ```bash
+   curl -X POST http://localhost:8787/api/dashboard/sites/SITE_ID/publish
+   ```  
+   Success: JSON with the updated site (e.g. `published_at`, `published_artifact_path`).  
+   Failure: JSON `{ "error": "..." }` with status 401/403/404/500.
 
 ---
 

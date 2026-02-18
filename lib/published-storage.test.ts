@@ -99,7 +99,7 @@ describe("published-storage", () => {
       expect(from).toHaveBeenCalledWith("published-sites");
       expect(upload).toHaveBeenCalledWith(
         "sites/site-id-1/index.html",
-        "<html>test</html>",
+        Buffer.from("<html>test</html>", "utf8"),
         { contentType: "text/html; charset=utf-8", upsert: true }
       );
     });
@@ -149,7 +149,7 @@ describe("published-storage", () => {
       expect(result).toBe(true);
       expect(upload).toHaveBeenCalledWith(
         "sites/id-2/index.html",
-        "<html>supabase</html>",
+        Buffer.from("<html>supabase</html>", "utf8"),
         expect.any(Object)
       );
     });

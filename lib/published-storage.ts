@@ -34,16 +34,29 @@ export async function uploadPublishedHtmlToSupabase(
   html: string
 ): Promise<boolean> {
   const path = `${ARTIFACT_PREFIX}${siteId}/${INDEX_KEY}`;
-  const { error } = await supabase.storage.from(SUPABASE_BUCKET).upload(path, html, {
+  const body =
+    typeof Buffer !== "undefined"
+      ? Buffer.from(html, "utf8")
+      : new TextEncoder().encode(html);
+  const { error } = await supabase.storage.from(SUPABASE_BUCKET).upload(path, body, {
     contentType: "text/html; charset=utf-8",
     upsert: true,
   });
   return !error;
 }
 
+/** True when Supabase is configured (URL set); then we never use local filesystem for publish. */
+function isSupabaseConfigured(): boolean {
+  const url =
+    typeof process.env.NEXT_PUBLIC_SUPABASE_URL === "string"
+      ? process.env.NEXT_PUBLIC_SUPABASE_URL.trim()
+      : "";
+  return url.length > 0;
+}
+
 /**
- * Upload published HTML to Supabase Storage or local folder (when Supabase not configured).
- * Local: writes to PUBLISHED_SITES_LOCAL_DIR (default public/published-sites)/sites/{siteId}/index.html.
+ * Upload published HTML to Supabase Storage or local folder (only when Supabase is not configured).
+ * When NEXT_PUBLIC_SUPABASE_URL is set (local or production), we use Supabase Storage only; set SUPABASE_SERVICE_ROLE_KEY for uploads.
  */
 export async function uploadPublishedHtml(
   siteId: string,
@@ -52,6 +65,9 @@ export async function uploadPublishedHtml(
 ): Promise<boolean> {
   if (supabase) {
     return uploadPublishedHtmlToSupabase(supabase, siteId, html);
+  }
+  if (isSupabaseConfigured()) {
+    return false;
   }
   try {
     const path = await import("path");
@@ -78,7 +94,7 @@ export async function deletePublishedArtifactsFromSupabase(
 }
 
 /**
- * Delete all published artifacts for a site (Supabase Storage or local folder).
+ * Delete all published artifacts for a site (Supabase Storage or local folder when Supabase not configured).
  */
 export async function deletePublishedArtifacts(
   siteId: string,
@@ -86,6 +102,9 @@ export async function deletePublishedArtifacts(
 ): Promise<void> {
   if (supabase) {
     await deletePublishedArtifactsFromSupabase(supabase, siteId);
+    return;
+  }
+  if (isSupabaseConfigured()) {
     return;
   }
   try {

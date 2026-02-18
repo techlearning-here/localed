@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ContactForm } from "@/components/contact-form";
 import { buildPublicSiteMetadata } from "@/lib/build-public-meta";
 import { getCountryLabel } from "@/lib/countries";
@@ -70,7 +70,18 @@ export default async function PublicSitePage({
   const cdnUrl = site.published_artifact_path
     ? getPublishedSiteUrl(site.published_artifact_path)
     : "";
-  if (cdnUrl) redirect(cdnUrl);
+  if (cdnUrl) {
+    const proxyUrl = `/api/sites/${siteSlug}/published`;
+    return (
+      <div className="published-site-frame">
+        <iframe
+          src={proxyUrl}
+          title={site.published_meta?.title ?? site.slug}
+          className="published-site-iframe"
+        />
+      </div>
+    );
+  }
   if (!site.published_content) notFound();
 
   const locale = site.languages?.[0] ?? "en";

@@ -89,8 +89,18 @@ export async function POST(
   const supabaseForStorage = getSupabaseServiceRole() ?? undefined;
   const uploaded = await uploadPublishedHtml(id, html, supabaseForStorage);
   const published_at = new Date().toISOString();
+  const cdnBaseUrl = getPublishedCdnBaseUrl();
+  if (cdnBaseUrl && !uploaded) {
+    return NextResponse.json(
+      {
+        error:
+          "Publish to storage failed. Set SUPABASE_SERVICE_ROLE_KEY (and ensure the published-sites bucket exists and is public).",
+      },
+      { status: 500 }
+    );
+  }
 
-  if (uploaded && getPublishedCdnBaseUrl()) {
+  if (uploaded && cdnBaseUrl) {
     const artifactPath = getArtifactPathPrefix(id).replace(/\/$/, "");
     const artifactUpdatePayload = {
       published_at,
