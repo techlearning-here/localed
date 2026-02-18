@@ -1,4 +1,3 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest, NextResponse } from "next/server";
 import { buildPublishedPageHtmlFromSite } from "@/lib/build-published-html";
 import {
@@ -66,8 +65,9 @@ export async function POST(
 
   let bucket: PublishedSitesBucket | undefined;
   try {
-    const ctx = getCloudflareContext();
-    bucket = ctx.env?.PUBLISHED_SITES as PublishedSitesBucket | undefined;
+    const mod = await import("@opennextjs/cloudflare");
+    const ctx = mod.getCloudflareContext?.();
+    bucket = (ctx?.env as { PUBLISHED_SITES?: PublishedSitesBucket } | undefined)?.PUBLISHED_SITES;
   } catch {
     bucket = undefined;
   }

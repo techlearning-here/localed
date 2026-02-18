@@ -1,4 +1,3 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest, NextResponse } from "next/server";
 import { deletePublishedArtifacts } from "@/lib/published-storage";
 import type { PublishedSitesBucket } from "@/lib/published-storage";
@@ -40,8 +39,9 @@ export async function DELETE(
   const { id } = await params;
   let bucket: PublishedSitesBucket | undefined;
   try {
-    const ctx = getCloudflareContext();
-    bucket = ctx.env?.PUBLISHED_SITES as PublishedSitesBucket | undefined;
+    const mod = await import("@opennextjs/cloudflare");
+    const ctx = mod.getCloudflareContext?.();
+    bucket = (ctx?.env as { PUBLISHED_SITES?: PublishedSitesBucket } | undefined)?.PUBLISHED_SITES;
   } catch {
     bucket = undefined;
   }
