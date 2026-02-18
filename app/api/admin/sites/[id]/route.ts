@@ -36,8 +36,9 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { id } = await params;
+  const site = await getSiteByIdForAdmin(id);
   const supabase = getSupabaseServiceRole();
-  await deletePublishedArtifacts(id, supabase ?? undefined);
+  await deletePublishedArtifacts(id, supabase ?? undefined, site?.published_artifact_path ?? undefined);
   const ok = await deleteSiteForAdmin(id);
   if (!ok) {
     return NextResponse.json({ error: "Delete failed" }, { status: 500 });

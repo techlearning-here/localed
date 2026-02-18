@@ -21,9 +21,14 @@ describe("published-storage", () => {
   });
 
   describe("getArtifactPathPrefix", () => {
-    it("returns sites/{siteId}/", () => {
+    it("returns sites/{siteId}/ when no version", () => {
       expect(getArtifactPathPrefix("abc-123")).toBe("sites/abc-123/");
       expect(getArtifactPathPrefix("xyz")).toBe("sites/xyz/");
+    });
+    it("returns sites/{siteId}/{version}/ when version provided", () => {
+      expect(getArtifactPathPrefix("abc-123", "2026-02-17T18-30-00-000Z")).toBe(
+        "sites/abc-123/2026-02-17T18-30-00-000Z/"
+      );
     });
   });
 
@@ -62,10 +67,13 @@ describe("published-storage", () => {
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     });
 
-    it("returns full URL when base is set and path is sites/{id}", () => {
+    it("returns full URL when base is set and path is sites/{id} or versioned", () => {
       process.env.PUBLISHED_SITES_CDN_URL = "https://cdn.example.com";
       expect(getPublishedSiteUrl("sites/abc-123")).toBe(
         "https://cdn.example.com/sites/abc-123/index.html"
+      );
+      expect(getPublishedSiteUrl("sites/abc-123/2026-02-17T18-30-00-000Z")).toBe(
+        "https://cdn.example.com/sites/abc-123/2026-02-17T18-30-00-000Z/index.html"
       );
     });
 

@@ -401,6 +401,32 @@ export default function EditSitePage() {
     }
     if (!site) return;
     try {
+      const locale = primaryLocale;
+      const galleryUrls = (form.galleryUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+      const youtubeUrls = (form.youtubeUrls ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+      const base = {
+        ...((site.draft_content?.[locale] ?? site.draft_content?.en ?? {}) as Record<string, unknown>),
+        ...form,
+      };
+      const draftContentForPayload = {
+        [locale]: { ...base, ...templateExtraValues, galleryUrls, youtubeUrls },
+      };
+      const saveRes = await fetch(`/api/dashboard/sites/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draft_content: draftContentForPayload,
+          country: form.country ?? null,
+          languages: siteLanguages.length ? siteLanguages : [DEFAULT_LANGUAGE],
+          business_type: businessType,
+        }),
+      });
+      if (!saveRes.ok) {
+        const data = await saveRes.json().catch(() => ({}));
+        setError(data.error ?? "Save failed before publish");
+        setPublishing(false);
+        return;
+      }
       const res = await fetch(`/api/dashboard/sites/${id}/publish`, {
         method: "POST",
       });

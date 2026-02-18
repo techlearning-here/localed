@@ -13,6 +13,7 @@ async function loadPublishDeps() {
     getArtifactPathPrefix: storageModule.getArtifactPathPrefix,
     getPublishedCdnBaseUrl: storageModule.getPublishedCdnBaseUrl,
     uploadPublishedHtml: storageModule.uploadPublishedHtml,
+    deletePublishedArtifacts: storageModule.deletePublishedArtifacts,
   };
 }
 
@@ -73,6 +74,7 @@ export async function POST(
     getArtifactPathPrefix,
     getPublishedCdnBaseUrl,
     uploadPublishedHtml,
+    deletePublishedArtifacts,
   } = await loadPublishDeps();
 
   let html: string;
@@ -86,9 +88,10 @@ export async function POST(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 
-  const supabaseForStorage = getSupabaseServiceRole() ?? undefined;
-  const uploaded = await uploadPublishedHtml(id, html, supabaseForStorage);
   const published_at = new Date().toISOString();
+  const version = published_at.replace(/[:.]/g, "-");
+  const supabaseForStorage = getSupabaseServiceRole() ?? undefined;
+  const uploaded = await uploadPublishedHtml(id, html, supabaseForStorage, version);
   const cdnBaseUrl = getPublishedCdnBaseUrl();
   if (cdnBaseUrl && !uploaded) {
     return NextResponse.json(
@@ -101,7 +104,8 @@ export async function POST(
   }
 
   if (uploaded && cdnBaseUrl) {
-    const artifactPath = getArtifactPathPrefix(id).replace(/\/$/, "");
+    const artifactPath = getArtifactPathPrefix(id, version).replace(/\/$/, "");
+    const oldArtifactPath = (site.published_artifact_path ?? "").trim() || null;
     const artifactUpdatePayload = {
       published_at,
       updated_at: published_at,
@@ -116,6 +120,9 @@ export async function POST(
       .select()
       .single();
     if (!artifactError) {
+      if (oldArtifactPath && oldArtifactPath !== artifactPath) {
+        await deletePublishedArtifacts(id, supabaseForStorage, oldArtifactPath);
+      }
       return NextResponse.json(updatedWithArtifact);
     }
     // Fallback: table may lack published_artifact_path / published_meta (migration not run); store in published_content

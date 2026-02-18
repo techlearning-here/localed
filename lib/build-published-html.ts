@@ -227,7 +227,7 @@ function renderPublishedTemplate(view: PublishedView): string {
     parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">Videos</h2>\n      <div class=\"mt-2 space-y-4\">\n");
     for (const embed of youtubeEmbeds) {
       const src = escapeHtml(embed.src ?? "");
-      parts.push("        <div class=\"aspect-video w-full max-w-2xl overflow-hidden rounded-lg\"><iframe src=\"", src, "\" title=\"YouTube video\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture\" allowfullscreen class=\"h-full w-full\"></iframe></div>\n");
+      parts.push("        <div class=\"relative w-full overflow-hidden rounded-lg\" style=\"max-width: 896px; aspect-ratio: 16/9; min-height: 480px\"><iframe src=\"", src, "\" title=\"YouTube video\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture\" allowfullscreen class=\"absolute inset-0 h-full w-full\"></iframe></div>\n");
     }
     parts.push("      </div>\n    </section>\n");
   }

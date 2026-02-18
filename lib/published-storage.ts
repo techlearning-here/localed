@@ -4,9 +4,12 @@ const ARTIFACT_PREFIX = "sites/";
 const SUPABASE_BUCKET = "published-sites";
 
 /**
- * Key prefix for a site's published files (e.g. "sites/abc-123/").
+ * Key prefix for a site's published files. With version, each publish gets a new path to avoid CDN serving stale content.
+ * @param siteId - Site UUID
+ * @param version - Optional version segment (e.g. from published_at); when set, path is sites/{id}/{version}/
  */
-export function getArtifactPathPrefix(siteId: string): string {
+export function getArtifactPathPrefix(siteId: string, version?: string): string {
+  if (version) return `${ARTIFACT_PREFIX}${siteId}/${version}/`;
   return `${ARTIFACT_PREFIX}${siteId}/`;
 }
 
@@ -25,15 +28,17 @@ function getLocalDir(): string {
 }
 
 /**
- * Upload published HTML to Supabase Storage (bucket: published-sites, path: sites/{siteId}/index.html).
- * Bucket must exist and be public.
+ * Upload published HTML to Supabase Storage. With version, uses sites/{siteId}/{version}/index.html so each publish is a new object (avoids CDN stale cache).
  */
 export async function uploadPublishedHtmlToSupabase(
   supabase: SupabaseClient,
   siteId: string,
-  html: string
+  html: string,
+  version?: string
 ): Promise<boolean> {
-  const path = `${ARTIFACT_PREFIX}${siteId}/${INDEX_KEY}`;
+  const path = version
+    ? `${ARTIFACT_PREFIX}${siteId}/${version}/${INDEX_KEY}`
+    : `${ARTIFACT_PREFIX}${siteId}/${INDEX_KEY}`;
   const body =
     typeof Buffer !== "undefined"
       ? Buffer.from(html, "utf8")
@@ -56,15 +61,16 @@ function isSupabaseConfigured(): boolean {
 
 /**
  * Upload published HTML to Supabase Storage or local folder (only when Supabase is not configured).
- * When NEXT_PUBLIC_SUPABASE_URL is set (local or production), we use Supabase Storage only; set SUPABASE_SERVICE_ROLE_KEY for uploads.
+ * When version is provided, uses a versioned path so each publish is a new object (avoids CDN stale cache).
  */
 export async function uploadPublishedHtml(
   siteId: string,
   html: string,
-  supabase?: SupabaseClient | null
+  supabase?: SupabaseClient | null,
+  version?: string
 ): Promise<boolean> {
   if (supabase) {
-    return uploadPublishedHtmlToSupabase(supabase, siteId, html);
+    return uploadPublishedHtmlToSupabase(supabase, siteId, html, version);
   }
   if (isSupabaseConfigured()) {
     return false;
@@ -73,7 +79,9 @@ export async function uploadPublishedHtml(
     const path = await import("path");
     const fs = await import("fs");
     const baseDir = getLocalDir();
-    const siteDir = path.join(baseDir, "sites", siteId);
+    const siteDir = version
+      ? path.join(baseDir, "sites", siteId, version)
+      : path.join(baseDir, "sites", siteId);
     fs.mkdirSync(siteDir, { recursive: true });
     fs.writeFileSync(path.join(siteDir, INDEX_KEY), html, "utf-8");
     return true;
@@ -84,24 +92,29 @@ export async function uploadPublishedHtml(
 
 /**
  * Delete published artifacts for a site from Supabase Storage.
+ * When artifactPath is provided (e.g. sites/id/version), removes that path; otherwise removes sites/{siteId}/index.html.
  */
 export async function deletePublishedArtifactsFromSupabase(
   supabase: SupabaseClient,
-  siteId: string
+  siteId: string,
+  artifactPath?: string | null
 ): Promise<void> {
-  const path = `${ARTIFACT_PREFIX}${siteId}/${INDEX_KEY}`;
+  const path = artifactPath
+    ? `${artifactPath.replace(/\/$/, "")}/${INDEX_KEY}`
+    : `${ARTIFACT_PREFIX}${siteId}/${INDEX_KEY}`;
   await supabase.storage.from(SUPABASE_BUCKET).remove([path]);
 }
 
 /**
- * Delete all published artifacts for a site (Supabase Storage or local folder when Supabase not configured).
+ * Delete published artifacts for a site. When artifactPath is provided, removes that version only.
  */
 export async function deletePublishedArtifacts(
   siteId: string,
-  supabase?: SupabaseClient | null
+  supabase?: SupabaseClient | null,
+  artifactPath?: string | null
 ): Promise<void> {
   if (supabase) {
-    await deletePublishedArtifactsFromSupabase(supabase, siteId);
+    await deletePublishedArtifactsFromSupabase(supabase, siteId, artifactPath);
     return;
   }
   if (isSupabaseConfigured()) {
@@ -110,8 +123,11 @@ export async function deletePublishedArtifacts(
   try {
     const path = await import("path");
     const fs = await import("fs");
-    const siteDir = path.join(getLocalDir(), "sites", siteId);
-    if (fs.existsSync(siteDir)) fs.rmSync(siteDir, { recursive: true });
+    const baseDir = getLocalDir();
+    const toRemove = artifactPath
+      ? path.join(baseDir, artifactPath)
+      : path.join(baseDir, "sites", siteId);
+    if (fs.existsSync(toRemove)) fs.rmSync(toRemove, { recursive: true });
   } catch {
     // Ignore local delete errors (e.g. dir missing)
   }
