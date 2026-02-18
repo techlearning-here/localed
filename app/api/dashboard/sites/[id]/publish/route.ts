@@ -60,7 +60,16 @@ export async function POST(
     );
   }
 
-  const { html, meta } = buildPublishedPageHtmlFromSite(site, SITE_BASE_URL);
+  let html: string;
+  let meta: { title?: string; description?: string; ogImage?: string };
+  try {
+    const built = buildPublishedPageHtmlFromSite(site, SITE_BASE_URL);
+    html = built.html;
+    meta = built.meta;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Build failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   const supabaseForStorage = getSupabaseServiceRole() ?? undefined;
   const uploaded = await uploadPublishedHtml(id, html, supabaseForStorage);
@@ -68,39 +77,42 @@ export async function POST(
 
   if (uploaded && getPublishedCdnBaseUrl()) {
     const artifactPath = getArtifactPathPrefix(id).replace(/\/$/, "");
-    const updatePayload = {
+    const artifactUpdatePayload = {
       published_at,
       updated_at: published_at,
       published_content: null,
       published_artifact_path: artifactPath,
       published_meta: meta,
     };
-    const { data: updated, error } = await supabase
+    const { data: updatedWithArtifact, error: artifactError } = await supabase
       .from("localed_sites")
-      .update(updatePayload)
+      .update(artifactUpdatePayload)
       .eq("id", id)
       .select()
       .single();
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!artifactError) {
+      return NextResponse.json(updatedWithArtifact);
     }
-    return NextResponse.json(updated);
+    // Fallback: table may lack published_artifact_path / published_meta (migration not run); store in published_content
   }
 
   const published_content = site.draft_content;
-  const updatePayload = {
+  const fallbackPayload = {
     published_content,
     published_at,
     updated_at: published_at,
   };
   const { data: updated, error } = await supabase
     .from("localed_sites")
-    .update(updatePayload)
+    .update(fallbackPayload)
     .eq("id", id)
     .select()
     .single();
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Database update failed" },
+      { status: 500 }
+    );
   }
   return NextResponse.json(updated);
 }

@@ -385,7 +385,12 @@ export default function EditSitePage() {
           method: "POST",
         });
         if (!pubRes.ok) {
-          setError("Site created but publish failed. You can publish from the editor.");
+          const pubData = await pubRes.json().catch(() => ({}));
+          setError(
+            pubData.error
+              ? `Site created but publish failed: ${pubData.error}`
+              : "Site created but publish failed. You can publish from the editor."
+          );
         }
         router.replace(`/dashboard/sites/${createData.id}/edit`);
       } catch {
