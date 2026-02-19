@@ -68,6 +68,14 @@ export type SiteContentLocale = {
   country?: string;
   /** Location / area served e.g. "Serving Mumbai and suburbs" (DATA_WE_COLLECT §2) */
   areaServed?: string;
+  /** Instructions to find the place e.g. "Use the rear entrance", "Next to the bank" */
+  addressDescription?: string;
+  /** Optional location name e.g. "Downtown branch" (for multi-location) */
+  locationName?: string;
+  /** Service-area only: we serve customers at their location (no physical storefront). When true, address can be hidden from public. */
+  serviceAreaOnly?: boolean;
+  /** When serviceAreaOnly: regions/cities served e.g. "Mumbai, Thane, Navi Mumbai" */
+  serviceAreaRegions?: string;
   phone?: string;
   /** Optional second phone (DATA_WE_COLLECT §2) */
   phone2?: string;
@@ -182,12 +190,26 @@ export type SiteContentLocale = {
   shareSectionTitle?: string;
   /** Custom domain display in footer (e.g. "Visit us at example.com") */
   customDomainDisplay?: string;
+  /** Parking e.g. "Free lot", "Street parking", "Paid garage" (local SEO / GBP-style) */
+  parking?: string;
+  /** Accessibility e.g. "Wheelchair accessible", "Ramp at rear" */
+  accessibilityWheelchair?: string;
+  /** Service options e.g. "Dine-in, Takeout, Delivery, Curbside pickup" */
+  serviceOptions?: string;
+  /** Languages spoken (if different from site UI languages) e.g. "English, Hindi, Marathi" */
+  languagesSpoken?: string;
+  /** Other amenities e.g. "Outdoor seating, Free Wi-Fi, 24/7" */
+  otherAmenities?: string;
   /** Contact form: reply-to display name for notification email */
   contactFormReplyToName?: string;
   /** Render FAQ as accordion (details/summary) when true */
   faqAsAccordion?: boolean;
+  /** Single page (all sections on one page) or multi-page (separate pages for About, Services, etc.) */
+  siteLayout?: "single_page" | "multi_page";
   [key: string]: unknown;
 };
+
+export type SiteLayout = "single_page" | "multi_page";
 
 export type SiteContent = {
   en?: SiteContentLocale;
@@ -226,6 +248,8 @@ export type LocaledSite = {
   published_at: string | null;
   /** When set, site is archived: hidden from public, contact form disabled */
   archived_at: string | null;
+  /** Editor-only: field keys that were assistant-prefilled; persisted in DB so sample indication survives publish and re-edit */
+  assistant_prefilled_fields?: string[] | null;
   draft_content: SiteContent;
   /** Set when serving from DB (no CDN). When using CDN, null; recreate the site from draft_content + path + meta. */
   published_content: SiteContent | null;
@@ -247,10 +271,14 @@ export type CreateSiteBody = {
   country?: string | null;
   /** Optional; when provided (e.g. from wizard) used instead of buildDraftContentFromTemplate */
   draft_content?: SiteContent;
+  /** Optional; editor-only keys of assistant-prefilled fields, persisted so sample indication survives publish */
+  assistant_prefilled_fields?: string[];
 };
 
 export type UpdateSiteDraftBody = {
   draft_content?: Partial<SiteContent>;
+  /** Editor-only: persist assistant-prefilled field keys so sample indication survives publish and re-edit */
+  assistant_prefilled_fields?: string[];
   /** Site-level country (ISO 3166-1 alpha-2); stored in DB and synced into draft_content */
   country?: string | null;
   /** Site languages; when provided, draft_content is adjusted (new locales get default content, removed ones dropped) */

@@ -2,7 +2,7 @@
 
 **TDD-oriented feature list for MVP: Health, Sites, Public site, Contact form, Editor, QR code, then Auth last.**
 
-*Document Version: 1.5*
+*Document Version: 1.6*
 
 **In scope for MVP:** Templates (2 per business type, template selection + optional extra fields in wizard), Contact submissions list (dashboard API + UI on edit page). See Summary checklist and “MVP features in this document” below.
 
@@ -437,6 +437,27 @@ Site rows store `draft_content` and `published_content` as JSON. The structure o
 
 ---
 
+## EDITOR-04 — Recommended image dimensions (editor hints)
+
+| Field | Value |
+|-------|--------|
+| **Feature** | Editor shows recommended image dimensions per template role (hero, gallery, logo, favicon, service, team, testimonial, certification) so users can upload or link images that display well. |
+| **Test level** | U |
+| **Depends on** | None (lib only) |
+
+**Acceptance criteria / Test cases:**
+
+| ID | Given | When | Then |
+|----|--------|------|------|
+| EDITOR-04.1 | Any image role (hero, gallery, logo, favicon, service, team, testimonial, certification) | `getRecommendedImageDimension(role)` is called | Returns object with `width`, `height`, `label` (e.g. "1200 × 600 px") |
+| EDITOR-04.2 | Role "hero" | `getRecommendedImageDimension("hero")` | Returns width 1200, height 600, label "1200 × 600 px" |
+| EDITOR-04.3 | Any role | `getRecommendedDimensionHint(role)` is called | Returns string "Recommended: " + that role's label (e.g. "Recommended: 800 × 800 px" for gallery) |
+| EDITOR-04.4 | All predefined roles | Each role is queried | No role returns zero or missing dimensions; labels are non-empty |
+
+**TDD:** Write unit tests for `getRecommendedImageDimension` and `getRecommendedDimensionHint` in `lib/image-dimensions.test.ts` → implement `lib/image-dimensions.ts` → refactor.
+
+---
+
 # Module 6: QR code
 
 ## QR-01 — Generate and download QR code (frontend)
@@ -460,7 +481,73 @@ Site rows store `draft_content` and `published_content` as JSON. The structure o
 
 ---
 
-# Module 7: Auth (implement last)
+# Module 7: Appointment booking (Cal.com / Calendly)
+
+**Purpose:** Let business owners (paid tier) offer appointment booking on their site by integrating **Cal.com** or **Calendly**. Availability, reminders, and calendar sync are handled by the provider; we store per-site config and render the embed or link. Full design and options: **[APPOINTMENT_BOOKING.md](./APPOINTMENT_BOOKING.md)**.
+
+## BOOKING-01 — Enable appointments and set provider (editor + content)
+
+| Field | Value |
+|-------|--------|
+| **Feature** | In the editor (Hours & booking step or dedicated Appointments section), owner can enable “Appointments” (paid tier), choose provider **Cal.com** or **Calendly**, and save a **booking URL** (or event-type link) per site. |
+| **Test level** | I, U |
+| **Depends on** | EDITOR-02 (draft save), optional: plan/entitlement for paid tier |
+
+**Acceptance criteria / Test cases:**
+
+| ID | Given | When | Then |
+|----|--------|------|------|
+| BOOKING-01.1 | Owner on edit page, paid tier | Owner toggles “Enable appointments” and selects Cal.com, pastes booking URL, saves | Draft content (or site settings) stores `booking_enabled: true`, `booking_provider: 'calcom'`, `booking_url: <pasted URL>`; PATCH succeeds |
+| BOOKING-01.2 | Owner selects Calendly and pastes link | Save | Draft stores `booking_provider: 'calendly'`, `booking_url` |
+| BOOKING-01.3 | Owner disables appointments | Save | `booking_enabled: false` (or URL cleared); published site does not show booking |
+| BOOKING-01.4 | Free tier (if gated) | Owner tries to enable appointments | UI shows upgrade prompt or appointments disabled |
+
+**TDD:** Write test that PATCH accepts and persists booking fields; optional test that paid tier is required → implement editor UI and draft/schema → refactor.
+
+---
+
+## BOOKING-02 — Show booking on published site (public)
+
+| Field | Value |
+|-------|--------|
+| **Feature** | When a site has appointments enabled and a valid booking URL, the published site shows a “Book now” (or “Appointments”) entry in nav and/or a booking section; clicking opens the Cal.com or Calendly embed (iframe) or new tab. |
+| **Test level** | I, E |
+| **Depends on** | PUBLIC-02 (published site render), BOOKING-01 (config in content) |
+
+**Acceptance criteria / Test cases:**
+
+| ID | Given | When | Then |
+|----|--------|------|------|
+| BOOKING-02.1 | Site published, `booking_enabled: true`, `booking_provider: 'calcom'`, `booking_url` set | Visitor opens site | “Book now” (or equivalent) is visible in nav or section |
+| BOOKING-02.2 | Same as above | Visitor clicks “Book now” | Cal.com embed loads (iframe or inline) or new tab opens to booking URL |
+| BOOKING-02.3 | Site has `booking_provider: 'calendly'` and URL | Visitor clicks Book | Calendly embed or link is used |
+| BOOKING-02.4 | Site has appointments disabled or no URL | Visitor opens site | No booking CTA or section shown |
+
+**TDD:** Write test that build/render includes booking section when config present and omits it when disabled → implement public template booking block (embed/link) → refactor.
+
+---
+
+## BOOKING-03 — Data model and schema (backend)
+
+| Field | Value |
+|-------|--------|
+| **Feature** | Booking config is stored per site: `booking_enabled`, `booking_provider` (`calcom` or `calendly`), `booking_url`. Stored in draft_content and/or site columns; not required for publish. |
+| **Test level** | I |
+| **Depends on** | SITES-03, SITES-04 (get/update site) |
+
+**Acceptance criteria / Test cases:**
+
+| ID | Given | When | Then |
+|----|--------|------|------|
+| BOOKING-03.1 | Site has no booking config | GET site | Response includes booking fields (defaults: disabled, no URL) |
+| BOOKING-03.2 | PATCH with booking_enabled, booking_provider, booking_url | Update site | Stored correctly; GET returns same values |
+| BOOKING-03.3 | Publish site with booking config | Build published snapshot | Booking config available to public render (or passed to template); `_assistantPrefilledFields` still stripped |
+
+**TDD:** Add booking fields to draft/schema; write PATCH/GET tests → implement → refactor.
+
+---
+
+# Module 8: Auth (implement last)
 
 Implement after Phase 1 features work. Removes dev-owner bypass and requires real Supabase session for dashboard APIs and dashboard/editor routes.
 
@@ -534,7 +621,9 @@ Implement after Phase 1 features work. Removes dev-owner bypass and requires rea
 | 4. Contact | CONTACT-01, CONTACT-02, **CONTACT-03**, **CONTACT-03-UI** | I for API; I/E for form; I for list submissions API and dashboard section | 1 |
 | 5. Editor | EDITOR-01 .. EDITOR-03 | I, E for flows | 1 |
 | 6. QR | QR-01 | U for generate; I for UI | 1 |
-| 7. Auth (last) | AUTH-02 .. AUTH-04 | I for API auth; E for login/logout | 2 |
+| 7. Appointments (Cal.com / Calendly) | BOOKING-01 .. BOOKING-03 | I for editor save and public render; E for embed/link | 1 or v1.1 |
+| 8. Auth (last) | AUTH-02 .. AUTH-04 | I for API auth; E for login/logout | 2 |
+| Admin | Sites table (slug, name, owner, status, **plan**, **created**, **updated**, actions) | I for admin API; manual for table UI | 1 |
 
 ---
 
@@ -542,7 +631,58 @@ Implement after Phase 1 features work. Removes dev-owner bypass and requires rea
 
 - **Templates (2 per business type):** User selects one of two templates per business type when creating/editing a site. The wizard includes a **Template** step (choose Modern or Classic) and a **Template details** step for templates that define extra fields (e.g. “Services section intro”). Create-site API requires `template_id` and validates it for the given `business_type`; draft content can be built from the template and optional extra-field values. See SITES-01 (MVP extension) and template catalog / `buildDraftContentFromTemplate`.
 - **Contact submissions list (dashboard):** **CONTACT-03** — `GET /api/dashboard/sites/{id}/submissions` returns contact form submissions for the site (owner only; newest first). **CONTACT-03-UI** — On the site edit page, a “Contact submissions” section shows the list (or empty state) and uses a unit-tested date formatter.
+- **Admin sites table:** Admin-only page lists all sites (or archived only). Table columns: Slug, Name, Owner, Status, **Plan** (subscription plan), **Created** (created date), **Updated** (updated date), and Actions (View, Delete forever).
+- **Single page vs multi page:** In Site settings, user can choose **Website layout**: Single page (all sections on one scrollable page) or Multi page (separate pages for About, Services, Contact). Choice is stored in content (`siteLayout`). When **multi-page** is selected, the published site is created with multiple pages: **Home** (`/[slug]`), **About** (`/[slug]/about`), **Services** (`/[slug]/services`), **Contact** (`/[slug]/contact`), with shared header navigation and footer; single-page layout remains one scrollable page. (Implemented for the React public site; static HTML/CDN multi-page can be added later if needed.)
+- **Create with assistance (assistant-prefilled content):** In the editor (create flow), user can click **"Pre-fill with sample content"** to fill all wizard fields with sample content from the content plan. The editor tracks which fields were prefilled via `_assistantPrefilledFields` in draft_content (per locale); this metadata is **not** published (stripped when building the published snapshot). A dismissible banner informs the user that some fields were assistant-prefilled. **Color indication:** Every prefilled form field and list section (Services, FAQ, Testimonials, Team, Certifications) shows a blue left border, light blue background, and "(sample)" badge until the user edits that field; editing removes it from the prefilled set. State is persisted with the draft so users can edit incrementally and return later to customize remaining sample fields.
+- **Social links with icons:** The public site **Follow us** section displays social links (Facebook, Instagram, YouTube, X, LinkedIn, TikTok, other) as **icon buttons** (inline SVG, 24×24) with accessible `aria-label`s. Implemented on the React public site and in the static HTML build for a consistent, professional look.
+- **Appointment booking (Cal.com / Calendly):** **Module 7** — Owner (paid tier) can enable appointments, choose provider (Cal.com or Calendly), and save a booking URL per site. Published site shows “Book now” (or equivalent) and embeds the provider’s scheduler or opens the link. Availability and calendar sync are handled by the provider. Full design: [APPOINTMENT_BOOKING.md](./APPOINTMENT_BOOKING.md).
+- **Import from Google (planned / later):** Connect Google Business Profile (OAuth) and pull name, address, hours, photos, and optionally reviews into draft so the user gets a full site from minimal input. See [HOW_AUTO_SITE_FROM_MINIMAL_INPUT_WORKS.md](./HOW_AUTO_SITE_FROM_MINIMAL_INPUT_WORKS.md) (Option B) and competitor roadmap COMP-02, COMP-05 below.
+- **Pre-created templates and content (Mighty Sites–style, planned):** Industry-specific template selection (many per type, layout + section structure), pre-written content applied automatically on create, curated stock images per business type, color palette per type, and quick create so the site is generated in under a minute and the user then edits (text, phone/email/social, logo, images) and publishes. Design: [PRE_CREATED_TEMPLATES_AND_CONTENT.md](./PRE_CREATED_TEMPLATES_AND_CONTENT.md).
+- **Good templates similar to competitors (planned):** Multiple layout variants (e.g. Modern, Classic, Minimal) with distinct section order and styling, template description and preview image in the wizard picker, and design principles (visual hierarchy, whitespace, mobile-first). Phased plan: [TEMPLATES_GOOD_AS_COMPETITORS.md](./TEMPLATES_GOOD_AS_COMPETITORS.md).
+- **UI-based template editor (planned, Mighty Sites–style):** After data collection (wizard or quick create), offer an edit mode where the user sees the site as it will look and can edit **per section** (e.g. “Edit” under Hero, About, Services, Contact). Each section’s edit opens a panel with only that section’s fields; changes apply immediately in the template view so the user sees what will be applied. More user-friendly than form-only editing. Design: [UI_BASED_TEMPLATE_EDITOR.md](./UI_BASED_TEMPLATE_EDITOR.md).
 
 ---
 
-*Extend this list when adding: appointments (embed), multi-language content save, hyper-local SEO (meta/schema), LocalBusiness JSON-LD, testimonials, ask-for-reviews/QR poster, reports/PDF export, workspaces, **WhatsApp extras** (pre-filled message, floating CTA, share via WhatsApp, WhatsApp QR — see [WHATSAPP_FEATURES.md](./WHATSAPP_FEATURES.md)), **AI features** (suggest copy, translation, SEO meta, “Improve this”, tips, alt text, contact summarization — see [AI_FEATURES.md](./AI_FEATURES.md)), or other features from [ADDITIONAL_FEATURES.md](./ADDITIONAL_FEATURES.md). Features identified from competitor analysis are listed there with a “From competitor analysis” note; see [CompetitorFeatureAnalysis.md](./CompetitorFeatureAnalysis.md) for the full mapping. When adding or changing editor or template fields, update [DATA_WE_COLLECT.md](./DATA_WE_COLLECT.md) first and keep feature acceptance criteria in sync.*
+## Competitor-inspired features (roadmap)
+
+Best features gathered from Onepager, Localo, Mighty Sites, Jimdo, Canva, and Mailchimp are documented in **[COMPETITOR_BEST_FEATURES.md](./COMPETITOR_BEST_FEATURES.md)**. The following are included in the feature list as roadmap items.
+
+**High impact, feasible soon**
+
+| ID | Feature | Source | Notes |
+|----|---------|--------|-------|
+| COMP-01 | **LocalBusiness (and Service) schema** on every published page | Localo, Jimdo | JSON-LD so Google understands NAP, hours, type; improves local SEO. |
+| COMP-02 | **Import from Google** — manual paste of GBP URL or key fields to prefill name, address, hours | Localo | Optional step in create flow or Contact step; no OAuth in v1. |
+| COMP-03 | **Dashboard insights** — contact submission count; optional "Add Google Analytics" (paste GA ID to inject script) | Onepager, Jimdo, Mailchimp | Simple analytics/leads view in dashboard. |
+| COMP-04 | **Brand step** — primary color + font from a short list (no full brand kit) | Canva, Onepager | Single theme color + one font choice in wizard. |
+
+**High impact, more work**
+
+| ID | Feature | Source | Notes |
+|----|---------|--------|-------|
+| COMP-05 | **GBP OAuth** — pull name, address, hours, photos (and optionally reviews) into draft | Localo | Full "Import from Google Business Profile" with consent. |
+| COMP-06 | **Reviews on site** — manual "import from Google" (paste) or API later; show star rating + snippets | Localo | Block on published site that displays reviews. |
+| COMP-07 | **Simple native booking** — define weekly hours + slot length; "Book" opens modal or external link; or integrate one provider deeper | Jimdo | Alternative or complement to current Calendly/Cal.com link. |
+
+**Nice to have**
+
+| ID | Feature | Source | Notes |
+|----|---------|--------|-------|
+| COMP-08 | **Listing sync** — export NAP/hours for copy-paste to Google/Facebook; later API sync | Jimdo | One-click export or push to directories. |
+| COMP-09 | **Newsletter block** — embed code or "Mailchimp signup" URL + optional popup | Onepager, Mailchimp | Beyond current "Newsletter" label + URL. |
+| COMP-10 | **In-app help** — short FAQ or tooltips in the wizard (e.g. "How do I change my site name?") | Onepager | Reduce support load and improve completion. |
+
+When implementing any COMP-xx item, add acceptance criteria and test level here (or in a linked doc) and follow TDD. Full comparison table and "idea for localed" notes: [COMPETITOR_BEST_FEATURES.md](./COMPETITOR_BEST_FEATURES.md).
+
+**Planned / later**
+
+| Feature | Notes |
+|---------|-------|
+| **Import from Google** | Connect Google Business Profile (OAuth) and pull name, address, hours, photos, and optionally reviews into draft so the user gets a full site from minimal input. To be implemented later. Design: [HOW_AUTO_SITE_FROM_MINIMAL_INPUT_WORKS.md](./HOW_AUTO_SITE_FROM_MINIMAL_INPUT_WORKS.md) (Option B). |
+| **Pre-created templates and content (Mighty Sites–style)** | Industry-specific template selection (layout + sections), pre-written content applied automatically on create, curated images per business type, color palette per type, and quick create → instant full draft → edit then publish. Design and implementation order: [PRE_CREATED_TEMPLATES_AND_CONTENT.md](./PRE_CREATED_TEMPLATES_AND_CONTENT.md). |
+| **Good templates similar to competitors** | Multiple layout variants per business type (Modern, Classic, Minimal), template description and preview in picker, layoutId-driven section order and styling, and design principles (hierarchy, whitespace, mobile-first). Phased plan: [TEMPLATES_GOOD_AS_COMPETITORS.md](./TEMPLATES_GOOD_AS_COMPETITORS.md). |
+| **UI-based template editor** | After wizard/quick create, let user edit on the template: live preview with an “Edit” control per section; opening a section shows only that section’s fields in a panel; changes update the view immediately (Mighty Sites–style). Design: [UI_BASED_TEMPLATE_EDITOR.md](./UI_BASED_TEMPLATE_EDITOR.md). |
+
+---
+
+*Extend this list when adding: **Appointment booking (Cal.com / Calendly)** — enable per site, store provider + booking URL, show “Book now” and embed on published site; see [APPOINTMENT_BOOKING.md](./APPOINTMENT_BOOKING.md). Other candidates: multi-language content save, hyper-local SEO (meta/schema), LocalBusiness JSON-LD, testimonials, ask-for-reviews/QR poster, reports/PDF export, workspaces, **WhatsApp extras** (pre-filled message, floating CTA, share via WhatsApp, WhatsApp QR — see [WHATSAPP_FEATURES.md](./WHATSAPP_FEATURES.md)), **AI features** (suggest copy, translation, SEO meta, “Improve this”, tips, alt text, contact summarization — see [AI_FEATURES.md](./AI_FEATURES.md)), or other features from [ADDITIONAL_FEATURES.md](./ADDITIONAL_FEATURES.md). Features identified from competitor analysis are listed there with a “From competitor analysis” note; see [CompetitorFeatureAnalysis.md](./CompetitorFeatureAnalysis.md) and [COMPETITOR_BEST_FEATURES.md](./COMPETITOR_BEST_FEATURES.md) for the full mapping. When adding or changing editor or template fields, update [DATA_WE_COLLECT.md](./DATA_WE_COLLECT.md) first and keep feature acceptance criteria in sync.*

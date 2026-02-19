@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       { status: 422 }
     );
   }
-  const { business_type, slug, languages, country, template_id, draft_content: bodyDraft } = body;
+  const { business_type, slug, languages, country, template_id, draft_content: bodyDraft, assistant_prefilled_fields: bodyPrefilled } = body;
   if (
     !business_type ||
     !slug ||
@@ -103,6 +103,18 @@ export async function POST(request: NextRequest) {
   };
   if (country != null && String(country).trim() !== "") {
     insertPayload.country = String(country).trim();
+  }
+  const prefilledArr = Array.isArray(bodyPrefilled)
+    ? bodyPrefilled.filter((k): k is string => typeof k === "string")
+    : (() => {
+        const firstLocale = (draft_content as Record<string, unknown>)?.[languages[0]] ?? (draft_content as Record<string, unknown>)?.en;
+        const raw = firstLocale && typeof firstLocale === "object" && Array.isArray((firstLocale as Record<string, unknown>)._assistantPrefilledFields)
+          ? (firstLocale as Record<string, unknown>)._assistantPrefilledFields as unknown[]
+          : [];
+        return raw.filter((k): k is string => typeof k === "string");
+      })();
+  if (prefilledArr.length > 0) {
+    insertPayload.assistant_prefilled_fields = prefilledArr;
   }
 
   const { data: site, error } = await supabase

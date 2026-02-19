@@ -1,5 +1,5 @@
--- localed.info: drop all localed tables, policies, and indexes. Idempotent (IF EXISTS).
--- Run in Supabase SQL Editor when you want to remove localed schema. No functions exist in this project.
+-- localed.info: full cleanup — drop all localed tables, policies, and indexes. Idempotent (IF EXISTS).
+-- Run in Supabase SQL Editor when you want to remove the localed schema completely.
 
 -- ---------------------------------------------------------------------------
 -- 1. Drop RLS policies (must drop before tables)
@@ -28,10 +28,3 @@ drop policy if exists "Anyone can read feature flags" on public.localed_feature_
 drop table if exists public.localed_contact_submissions;
 drop table if exists public.localed_feature_flags;
 drop table if exists public.localed_sites;
-
--- ---------------------------------------------------------------------------
--- 3. Optional: drop any localed_* functions (none created by this project)
--- ---------------------------------------------------------------------------
-
--- Uncomment and adjust if you add functions later:
--- drop function if exists public.some_localed_function(uuid, text);

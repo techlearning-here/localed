@@ -149,6 +149,22 @@ describe("buildPublishedPageHtml", () => {
     expect(html).toContain("https://instagram.com/biz");
   });
 
+  it("Follow us section uses icon markup (svg and aria-label) when social URLs set", () => {
+    const { html } = buildPublishedPageHtml({
+      content: {
+        businessName: "Biz",
+        facebookUrl: "https://facebook.com/biz",
+        instagramUrl: "https://instagram.com/biz",
+      },
+      siteSlug: "biz",
+      siteBaseUrl: BASE_URL,
+    });
+    expect(html).toContain("Follow us");
+    expect(html).toMatch(/<svg[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+    expect(html).toMatch(/aria-label="Facebook"/);
+    expect(html).toMatch(/aria-label="Instagram"/);
+  });
+
   it("omits Follow us section when no social URLs", () => {
     const { html } = buildPublishedPageHtml({
       content: { businessName: "Biz" },

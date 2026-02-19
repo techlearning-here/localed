@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { stripAssistantPrefilledFromDraft } from "@/lib/strip-assistant-prefilled";
 import { getDashboardSupabase, getSupabaseServiceRole } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -128,7 +129,8 @@ export async function POST(
     // Fallback: table may lack published_artifact_path / published_meta (migration not run); store in published_content
   }
 
-  const published_content = site.draft_content;
+  /** Strip editor-only metadata (e.g. assistant-prefilled field list) before storing published snapshot. */
+  const published_content = stripAssistantPrefilledFromDraft(site.draft_content);
   const fallbackPayload = {
     published_content,
     published_at,

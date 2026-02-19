@@ -184,4 +184,100 @@ describe("PATCH /api/dashboard/sites/[id] (SITES-04)", () => {
     const data = await res.json();
     expect(data.error).toMatch(/cannot be changed after publishing/i);
   });
+
+  it("PATCH stores draft_content including _assistantPrefilledFields when provided (assistant-prefilled tracking)", async () => {
+    let capturedUpdate: Record<string, unknown> = {};
+    const mockFrom = vi.fn(() => ({
+      select: (cols: string) => {
+        if (cols === "*") {
+          return {
+            eq: () => ({
+              single: () => Promise.resolve({ data: mockSite }),
+            }),
+          };
+        }
+        return {
+          eq: () => ({
+            neq: () => ({
+              maybeSingle: () => Promise.resolve({ data: null }),
+            }),
+          }),
+        };
+      },
+      update: (updates: Record<string, unknown>) => {
+        capturedUpdate = updates;
+        return {
+          eq: () => ({
+            select: () => ({
+              single: () =>
+                Promise.resolve({
+                  data: { ...mockSite, ...updates },
+                }),
+            }),
+          }),
+        };
+      },
+    }));
+    vi.mocked(getDashboardSupabase).mockResolvedValue({
+      client: { from: mockFrom } as never,
+      userId: "owner-1",
+    });
+    const req = new Request("http://localhost/api/dashboard/sites/site-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        draft_content: {
+          en: {
+            businessName: "Acme",
+            _assistantPrefilledFields: ["businessName", "tagline"],
+          },
+        },
+      }),
+    });
+    const res = await PATCH(req, { params: Promise.resolve({ id: "site-1" }) });
+    expect(res.status).toBe(200);
+    const draft = capturedUpdate.draft_content as Record<string, Record<string, unknown>>;
+    expect(draft).toBeDefined();
+    expect(draft.en).toBeDefined();
+    expect(draft.en._assistantPrefilledFields).toEqual(["businessName", "tagline"]);
+  });
+
+  it("PATCH stores assistant_prefilled_fields in DB column when provided (sample indication persists after publish)", async () => {
+    let capturedUpdate: Record<string, unknown> = {};
+    const mockFrom = vi.fn(() => ({
+      select: () => ({
+        eq: () => ({
+          single: () => Promise.resolve({ data: mockSite }),
+        }),
+      }),
+      update: (updates: Record<string, unknown>) => {
+        capturedUpdate = updates;
+        return {
+          eq: () => ({
+            select: () => ({
+              single: () =>
+                Promise.resolve({
+                  data: { ...mockSite, ...updates },
+                }),
+            }),
+          }),
+        };
+      },
+    }));
+    vi.mocked(getDashboardSupabase).mockResolvedValue({
+      client: { from: mockFrom } as never,
+      userId: "owner-1",
+    });
+    const req = new Request("http://localhost/api/dashboard/sites/site-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        draft_content: { en: { businessName: "Acme" } },
+        assistant_prefilled_fields: ["businessName", "tagline", "services"],
+      }),
+    });
+    const res = await PATCH(req, { params: Promise.resolve({ id: "site-1" }) });
+    expect(res.status).toBe(200);
+    expect(capturedUpdate.assistant_prefilled_fields).toEqual(["businessName", "tagline", "services"]);
+  });
 });

@@ -39,6 +39,7 @@ npm run test:watch  # watch mode
 | Area | File | What’s tested |
 |------|------|----------------|
 | Health | `app/api/health/route.test.ts` | AUTH-01: GET/HEAD 200, JSON body |
+| Image dimensions | `lib/image-dimensions.test.ts` | EDITOR-04: recommended dimensions per role, hint string |
 | Templates | `lib/templates.test.ts` | SITES-01: `isValidSlug`, `buildInitialDraftContent` |
 | Dashboard sites list/create | `app/api/dashboard/sites/route.test.ts` | SITES-01/02: 401, 422 invalid body/slug |
 | Dashboard site by id | `app/api/dashboard/sites/[id]/route.test.ts` | SITES-03 GET 401/403/200; SITES-04 PATCH 401, 422 invalid JSON |

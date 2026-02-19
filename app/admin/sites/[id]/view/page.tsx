@@ -55,7 +55,7 @@ export default async function AdminViewSitePage({
         <div className="flex items-center gap-3">
           {logo ? (
             // eslint-disable-next-line @next/next/no-img-element -- dynamic user URL
-            <img src={logo} alt="" className="h-10 w-auto object-contain" />
+            <img src={logo} alt="" className="h-10 max-h-10 w-auto object-contain" />
           ) : null}
           <h1 className="text-xl font-semibold">{businessName}</h1>
         </div>
@@ -64,8 +64,10 @@ export default async function AdminViewSitePage({
         </Link>
       </header>
       {heroImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- dynamic user URL
-        <img src={heroImage} alt="" className="h-48 w-full object-cover md:h-64" />
+        <div className="w-full overflow-hidden aspect-[21/9] min-h-[12rem] bg-gray-100">
+          {/* eslint-disable-next-line @next/next/no-img-element -- dynamic user URL */}
+          <img src={heroImage} alt="" className="h-full w-full object-cover" />
+        </div>
       ) : null}
       <div className="p-6">
         {shortDesc ? <p className="text-gray-600">{shortDesc}</p> : null}
@@ -119,8 +121,10 @@ export default async function AdminViewSitePage({
             <h2 className="text-lg font-medium">Gallery</h2>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {galleryUrls.map((url, i) => (
-                // eslint-disable-next-line @next/next/no-img-element -- dynamic user URL
-                <img key={i} src={url} alt="" className="aspect-square w-full rounded-lg object-cover" />
+                <div key={i} className="aspect-square w-full overflow-hidden rounded-lg bg-gray-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- dynamic user URL */}
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                </div>
               ))}
             </div>
           </section>

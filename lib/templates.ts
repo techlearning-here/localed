@@ -90,6 +90,7 @@ const DEFAULT_LOCALE_CONTENT = {
   customDomainDisplay: "",
   contactFormReplyToName: "",
   faqAsAccordion: false,
+  siteLayout: "single_page" as const,
 };
 
 /**

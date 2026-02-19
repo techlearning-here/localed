@@ -7,6 +7,7 @@ import {
   getTemplateById,
   isTemplateValidForBusinessType,
   getDefaultTemplateIdForBusinessType,
+  getLayoutIdForTemplate,
 } from "./template-catalog";
 
 describe("getTemplatesForBusinessType", () => {
@@ -16,11 +17,15 @@ describe("getTemplatesForBusinessType", () => {
     expect(getTemplatesForBusinessType("other")).toHaveLength(2);
   });
 
-  it("returns templates with id, businessType, and label", () => {
+  it("returns templates with id, businessType, label, layoutId, and description", () => {
     const salon = getTemplatesForBusinessType("salon");
     expect(salon[0]).toHaveProperty("id");
     expect(salon[0]).toHaveProperty("businessType", "salon");
     expect(salon[0]).toHaveProperty("label");
+    expect(salon[0]).toHaveProperty("layoutId");
+    expect(["default", "classic", "minimal"]).toContain(salon[0].layoutId);
+    expect(salon[0].description).toBeDefined();
+    expect(typeof salon[0].description).toBe("string");
   });
 
   it("some templates have extraFields", () => {
@@ -72,5 +77,21 @@ describe("getDefaultTemplateIdForBusinessType", () => {
   it("returns first template id for business type", () => {
     expect(getDefaultTemplateIdForBusinessType("salon")).toBe("salon-modern");
     expect(getDefaultTemplateIdForBusinessType("other")).toBe("other-modern");
+  });
+});
+
+describe("getLayoutIdForTemplate", () => {
+  it("returns default for Modern templates", () => {
+    expect(getLayoutIdForTemplate("salon-modern")).toBe("default");
+    expect(getLayoutIdForTemplate("clinic-modern")).toBe("default");
+  });
+
+  it("returns classic for Classic templates", () => {
+    expect(getLayoutIdForTemplate("salon-classic")).toBe("classic");
+    expect(getLayoutIdForTemplate("other-classic")).toBe("classic");
+  });
+
+  it("returns default for unknown template id", () => {
+    expect(getLayoutIdForTemplate("unknown")).toBe("default");
   });
 });

@@ -1,5 +1,6 @@
 import { getCountryLabel } from "@/lib/countries";
 import { buildLocalBusinessJsonLdScript } from "@/lib/build-local-business-schema";
+import { getRecommendedImageDimension } from "@/lib/image-dimensions";
 import type { PublishedMeta, SiteContent } from "@/lib/types/site";
 
 /** Escape for HTML text/attribute context (Workers-safe; no eval). */
@@ -9,6 +10,28 @@ function escapeHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+/** SVG path(s) for 24x24 social icon. Returns inner HTML for <svg viewBox="0 0 24 24">. */
+function socialIconSvgInnerHtml(
+  kind: "facebook" | "instagram" | "youtube" | "x" | "linkedin" | "tiktok" | "other"
+): string {
+  switch (kind) {
+    case "facebook":
+      return '<path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>';
+    case "instagram":
+      return '<path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>';
+    case "youtube":
+      return '<path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>';
+    case "x":
+      return '<path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>';
+    case "linkedin":
+      return '<path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>';
+    case "tiktok":
+      return '<path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>';
+    default:
+      return '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>';
+  }
 }
 
 const DEFAULT_DESCRIPTION_MAX_LENGTH = 160;
@@ -212,14 +235,15 @@ function buildTemplateView(
   const otherLinkLabel = typeof content.otherLinkLabel === "string" ? content.otherLinkLabel.trim() : "";
   const otherLinkUrl = typeof content.otherLinkUrl === "string" ? content.otherLinkUrl.trim() : "";
 
-  const socialLinks: { label: string; url: string }[] = [];
-  if (facebookUrl) socialLinks.push({ label: "Facebook", url: facebookUrl });
-  if (instagramUrl) socialLinks.push({ label: "Instagram", url: instagramUrl });
-  if (youtubeChannelUrl) socialLinks.push({ label: "YouTube", url: youtubeChannelUrl });
-  if (twitterUrl) socialLinks.push({ label: "X", url: twitterUrl });
-  if (linkedinUrl) socialLinks.push({ label: "LinkedIn", url: linkedinUrl });
-  if (tiktokUrl) socialLinks.push({ label: "TikTok", url: tiktokUrl });
-  if (otherLinkUrl) socialLinks.push({ label: otherLinkLabel || "Link", url: otherLinkUrl });
+  type SocialKind = "facebook" | "instagram" | "youtube" | "x" | "linkedin" | "tiktok" | "other";
+  const socialLinks: { kind: SocialKind; label: string; url: string }[] = [];
+  if (facebookUrl) socialLinks.push({ kind: "facebook", label: "Facebook", url: facebookUrl });
+  if (instagramUrl) socialLinks.push({ kind: "instagram", label: "Instagram", url: instagramUrl });
+  if (youtubeChannelUrl) socialLinks.push({ kind: "youtube", label: "YouTube", url: youtubeChannelUrl });
+  if (twitterUrl) socialLinks.push({ kind: "x", label: "X", url: twitterUrl });
+  if (linkedinUrl) socialLinks.push({ kind: "linkedin", label: "LinkedIn", url: linkedinUrl });
+  if (tiktokUrl) socialLinks.push({ kind: "tiktok", label: "TikTok", url: tiktokUrl });
+  if (otherLinkUrl) socialLinks.push({ kind: "other", label: otherLinkLabel || "Link", url: otherLinkUrl });
 
   const sameAs = [
     facebookUrl,
@@ -478,7 +502,7 @@ function renderPublishedTemplate(view: PublishedView): string {
   const youtubeEmbeds = (view.youtubeEmbeds as { src: string }[]) ?? [];
   const contactFormAction = escapeHtml(String(view.contactFormAction ?? ""));
   const hasSocialLinks = Boolean(view.hasSocialLinks);
-  const socialLinks = (view.socialLinks as { label: string; url: string }[]) ?? [];
+  const socialLinks = (view.socialLinks as { kind: string; label: string; url: string }[]) ?? [];
   const hasServices = Boolean(view.hasServices);
   const servicesList = (view.servicesList as { name: string; description?: string; image?: string; duration?: string; price?: string; category?: string }[]) ?? [];
   const hasFaq = Boolean(view.hasFaq);
@@ -554,13 +578,26 @@ function renderPublishedTemplate(view: PublishedView): string {
   }
   if (themeColor) parts.push("  <meta name=\"theme-color\" content=\"", escapeHtml(themeColor), "\">\n");
   parts.push("  <link href=\"https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css\" rel=\"stylesheet\" />\n</head>\n<body class=\"min-h-screen bg-white text-gray-900\">\n  <a href=\"#main-content\" class=\"sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 rounded bg-gray-900 px-3 py-2 text-white\">Skip to content</a>\n");
-  if (announcementBar) parts.push("  <div class=\"bg-gray-900 text-white text-center py-2 px-4 text-sm\">", escapeHtml(announcementBar), "</div>\n");
-  parts.push("  <header class=\"border-b p-4 flex items-center gap-3 flex-wrap\">\n");
-  if (logo) parts.push("    <img src=\"", escapeHtml(logo), "\" alt=\"\" class=\"h-10 w-auto object-contain\" />\n");
-  parts.push("    <div><h1 class=\"text-xl font-semibold\">", businessName, "</h1>\n");
-  if (tagline) parts.push("    <p class=\"text-sm text-gray-600\">", escapeHtml(tagline), "</p>\n");
+  parts.push("  <div class=\"bg-gray-900 text-white text-center py-2 px-4 text-sm\">", announcementBar ? escapeHtml(announcementBar) : `Welcome to ${businessName || "our site"}`, "</div>\n");
+  const navLinks: string[] = [];
+  if (about || yearEst) navLinks.push("<a href=\"#about\" class=\"text-gray-700 hover:text-gray-900\">" + aboutSectionTitle + "</a>");
+  if (hasServices) navLinks.push("<a href=\"#services\" class=\"text-gray-700 hover:text-gray-900\">" + servicesSectionTitle + "</a>");
+  if (hasContact) navLinks.push("<a href=\"#contact\" class=\"text-gray-700 hover:text-gray-900\">" + contactSectionTitle + "</a>");
+  if (hasHours) navLinks.push("<a href=\"#hours\" class=\"text-gray-700 hover:text-gray-900\">" + hoursSectionTitle + "</a>");
+  if (galleryUrls.length > 0) navLinks.push("<a href=\"#gallery\" class=\"text-gray-700 hover:text-gray-900\">" + gallerySectionTitle + "</a>");
+  if (bookingEnabled && bookingUrl) navLinks.push("<a href=\"#booking\" class=\"text-gray-700 hover:text-gray-900\">Book</a>");
+  if (hasFaq) navLinks.push("<a href=\"#faq\" class=\"text-gray-700 hover:text-gray-900\">" + faqSectionTitle + "</a>");
+  navLinks.push("<a href=\"#contact-form\" class=\"text-gray-700 hover:text-gray-900\">" + contactFormSectionTitle + "</a>");
+  parts.push("  <header class=\"border-b border-gray-200 bg-white shadow-sm sticky top-0 z-10\">\n    <div class=\"max-w-4xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3\">\n      <div class=\"flex items-center gap-4\">\n");
+  const logoDim = getRecommendedImageDimension("logo");
+  if (logo) parts.push("        <img src=\"", escapeHtml(logo), "\" alt=\"\" class=\"h-10 max-h-10 w-auto object-contain\" width=\"", String(logoDim.width), "\" height=\"", String(logoDim.height), "\" />\n");
+  parts.push("        <div><h1 class=\"text-xl font-bold text-gray-900\">", businessName, "</h1>\n");
+  if (tagline) parts.push("        <p class=\"text-xs text-gray-600\">", escapeHtml(tagline), "</p>\n");
+  parts.push("        </div>\n      </div>\n");
+  if (navLinks.length > 0) parts.push("      <nav class=\"flex flex-wrap gap-x-4 gap-y-1 text-sm\" aria-label=\"Main navigation\">\n        ", navLinks.join("\n        "), "\n      </nav>\n");
   parts.push("    </div>\n  </header>\n");
-  if (heroImage) parts.push("  <div class=\"w-full\"><img src=\"", escapeHtml(heroImage), "\" alt=\"\" class=\"h-48 w-full object-cover md:h-64\" /></div>\n");
+  const heroDim = getRecommendedImageDimension("hero");
+  if (heroImage) parts.push("  <div class=\"w-full overflow-hidden bg-gray-100\" style=\"aspect-ratio: 21/9; min-height: 12rem;\"><img src=\"", escapeHtml(heroImage), "\" alt=\"\" class=\"h-full w-full object-cover\" width=\"", String(heroDim.width), "\" height=\"", String(heroDim.height), "\" /></div>\n");
   parts.push("  <div id=\"main-content\" class=\"p-6\">\n");
   if (shortDesc) parts.push("    <p class=\"text-gray-600\">", escapeHtml(shortDesc), "</p>\n");
   if (hasCta && ctaLabel && ctaUrl) {
@@ -573,19 +610,20 @@ function renderPublishedTemplate(view: PublishedView): string {
     parts.push("    <p class=\"mt-2\"><a href=\"", escapeHtml(cta3Url), "\" class=\"inline-block rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50\" target=\"_blank\" rel=\"noopener noreferrer\">", escapeHtml(cta3Label), "</a></p>\n");
   }
   if (about || yearEst) {
-    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", aboutSectionTitle, "</h2>\n");
+    parts.push("    <section id=\"about\" class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", aboutSectionTitle, "</h2>\n");
     if (yearEst) parts.push("      <p class=\"mt-2 text-sm text-gray-600\">", escapeHtml(yearEst), "</p>\n");
     if (about) parts.push("      <p class=\"mt-2 text-gray-700\">", escapeHtml(about), "</p>\n");
     parts.push("    </section>\n");
   }
   if (hasServices && servicesList.length > 0) {
-    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", servicesSectionTitle, "</h2>\n");
+    parts.push("    <section id=\"services\" class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", servicesSectionTitle, "</h2>\n");
     if (servicesIntro) parts.push("      <p class=\"mt-2 text-gray-600\">", escapeHtml(servicesIntro), "</p>\n");
     parts.push("      <ul class=\"mt-2 space-y-4\">\n");
     for (const s of servicesList) {
       const name = escapeHtml(s.name);
       parts.push("        <li class=\"rounded-lg border border-gray-200 p-4\">\n");
-      if (s.image) parts.push("          <img src=\"", escapeHtml(s.image), "\" alt=\"\" class=\"mb-2 h-32 w-full rounded object-cover\" loading=\"lazy\" />\n");
+      const serviceDim = getRecommendedImageDimension("service");
+      if (s.image) parts.push("          <div class=\"mb-2 w-full overflow-hidden rounded-lg bg-gray-100\" style=\"aspect-ratio: 4/3; max-width: 240px;\"><img src=\"", escapeHtml(s.image), "\" alt=\"\" class=\"h-full w-full object-cover\" loading=\"lazy\" width=\"", String(serviceDim.width), "\" height=\"", String(serviceDim.height), "\" /></div>\n");
       if (s.category) parts.push("          <span class=\"text-xs font-medium uppercase text-gray-500\">", escapeHtml(s.category), "</span>\n");
       parts.push("          <span class=\"font-medium\">", name, "</span>\n");
       if (s.description) parts.push("          <p class=\"mt-1 text-sm text-gray-600\">", escapeHtml(s.description), "</p>\n");
@@ -598,7 +636,7 @@ function renderPublishedTemplate(view: PublishedView): string {
     parts.push("      </ul>\n    </section>\n");
   }
   if (hasContact) {
-    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", contactSectionTitle, "</h2>\n      <ul class=\"mt-2 space-y-1 text-gray-700\">\n");
+    parts.push("    <section id=\"contact\" class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", contactSectionTitle, "</h2>\n      <ul class=\"mt-2 space-y-1 text-gray-700\">\n");
     if (address) parts.push("        <li>", escapeHtml(address), "</li>\n");
     if (addressLocality) parts.push("        <li>", escapeHtml(addressLocality), "</li>\n");
     if (addressRegion) parts.push("        <li>", escapeHtml(addressRegion), "</li>\n");
@@ -617,14 +655,24 @@ function renderPublishedTemplate(view: PublishedView): string {
     parts.push("      </ul>\n    </section>\n");
   }
   if (hasSocialLinks && socialLinks.length > 0) {
-    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", socialSectionTitle, "</h2>\n      <ul class=\"mt-2 flex flex-wrap gap-3\">\n");
+    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", socialSectionTitle, "</h2>\n      <ul class=\"mt-2 flex flex-wrap gap-1\" role=\"list\">\n");
     for (const link of socialLinks) {
-      parts.push("        <li><a href=\"", escapeHtml(link.url), "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-blue-600 underline hover:text-blue-800\">", escapeHtml(link.label), "</a></li>\n");
+      const kind = (link.kind ?? "other") as Parameters<typeof socialIconSvgInnerHtml>[0];
+      const svgInner = socialIconSvgInnerHtml(kind);
+      parts.push(
+        "        <li><a href=\"",
+        escapeHtml(link.url),
+        "\" target=\"_blank\" rel=\"noopener noreferrer\" aria-label=\"",
+        escapeHtml(link.label),
+        "\" class=\"inline-flex items-center justify-center rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\" class=\"h-6 w-6\" aria-hidden=\"true\">",
+        svgInner,
+        "</svg></a></li>\n"
+      );
     }
     parts.push("      </ul>\n    </section>\n");
   }
   if (hasHours) {
-    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", hoursSectionTitle, "</h2>\n");
+    parts.push("    <section id=\"hours\" class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", hoursSectionTitle, "</h2>\n");
     if (timezone) parts.push("      <p class=\"mt-1 text-sm text-gray-500\">All times in ", escapeHtml(timezoneLabel), "</p>\n");
     parts.push("      <ul class=\"mt-2 space-y-1 text-gray-700\">\n");
     if (businessHours) parts.push("        <li>", escapeHtml(businessHours), "</li>\n");
@@ -632,13 +680,14 @@ function renderPublishedTemplate(view: PublishedView): string {
     parts.push("      </ul>\n    </section>\n");
   }
   if (galleryUrls.length > 0) {
-    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", gallerySectionTitle, "</h2>\n      <div class=\"mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3\">\n");
+    parts.push("    <section id=\"gallery\" class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", gallerySectionTitle, "</h2>\n      <div class=\"mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3\">\n");
     for (let i = 0; i < galleryUrls.length; i++) {
       const url = galleryUrls[i];
       const caption = galleryCaptions[i];
       const alt = caption ? escapeHtml(caption) : "";
-      parts.push("        <figure>");
-      parts.push("<img src=\"", escapeHtml(url), "\" alt=\"", alt, "\" class=\"aspect-square w-full rounded-lg object-cover\" />");
+      parts.push("        <figure class=\"overflow-hidden rounded-lg\">");
+      const galleryDim = getRecommendedImageDimension("gallery");
+      parts.push("<div class=\"w-full overflow-hidden rounded-lg bg-gray-100\" style=\"aspect-ratio: 1/1;\"><img src=\"", escapeHtml(url), "\" alt=\"", alt, "\" class=\"h-full w-full object-cover\" width=\"", String(galleryDim.width), "\" height=\"", String(galleryDim.height), "\" /></div>");
       if (caption) parts.push("<figcaption class=\"mt-1 text-xs text-gray-500 truncate\">", escapeHtml(caption), "</figcaption>");
       parts.push("</figure>\n");
     }
@@ -664,7 +713,7 @@ function renderPublishedTemplate(view: PublishedView): string {
     parts.push("      </div>\n    </section>\n");
   }
   if (bookingEnabled) {
-    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">Book online</h2>\n      <p class=\"mt-2 text-gray-700\">");
+    parts.push("    <section id=\"booking\" class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">Book online</h2>\n      <p class=\"mt-2 text-gray-700\">");
     if (bookingSlotDuration) parts.push("Slot duration: ", escapeHtml(bookingSlotDuration), ". ");
     if (bookingLeadTime) parts.push(escapeHtml(bookingLeadTime), ".");
     parts.push("</p>\n");
@@ -672,7 +721,7 @@ function renderPublishedTemplate(view: PublishedView): string {
     parts.push("    </section>\n");
   }
   if (hasFaq && faqList.length > 0) {
-    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", faqSectionTitle, "</h2>\n");
+    parts.push("    <section id=\"faq\" class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", faqSectionTitle, "</h2>\n");
     if (faqAsAccordion) {
       parts.push("      <div class=\"mt-2 space-y-2\">\n");
       for (const faq of faqList) {
@@ -689,10 +738,11 @@ function renderPublishedTemplate(view: PublishedView): string {
     parts.push("    </section>\n");
   }
   if (hasTestimonials && testimonialsList.length > 0) {
-    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", testimonialsSectionTitle, "</h2>\n      <div class=\"mt-2 space-y-4\">\n");
+    parts.push("    <section id=\"testimonials\" class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", testimonialsSectionTitle, "</h2>\n      <div class=\"mt-2 space-y-4\">\n");
     for (const t of testimonialsList) {
       parts.push("        <blockquote class=\"rounded-lg border border-gray-200 p-4\">\n");
-      if (t.photo) parts.push("          <img src=\"", escapeHtml(t.photo), "\" alt=\"\" class=\"mb-2 h-12 w-12 rounded-full object-cover\" />\n");
+      const testimonialDim = getRecommendedImageDimension("testimonial");
+      if (t.photo) parts.push("          <div class=\"mb-2 h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100\"><img src=\"", escapeHtml(t.photo), "\" alt=\"\" class=\"h-full w-full object-cover\" width=\"", String(testimonialDim.width), "\" height=\"", String(testimonialDim.height), "\" /></div>\n");
       parts.push("          <p class=\"text-gray-700\">", escapeHtml(t.quote), "</p>\n");
       if (t.author) parts.push("          <footer class=\"mt-2 text-sm text-gray-500\">— ", escapeHtml(t.author), "</footer>\n");
       if (t.rating) parts.push("          <p class=\"mt-1 text-sm text-amber-600\">", escapeHtml(t.rating), "</p>\n");
@@ -701,10 +751,11 @@ function renderPublishedTemplate(view: PublishedView): string {
     parts.push("      </div>\n    </section>\n");
   }
   if (hasTeam && teamList.length > 0) {
-    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", teamSectionTitle, "</h2>\n      <div class=\"mt-2 grid gap-4 sm:grid-cols-2\">\n");
+    parts.push("    <section id=\"team\" class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", teamSectionTitle, "</h2>\n      <div class=\"mt-2 grid gap-4 sm:grid-cols-2\">\n");
     for (const m of teamList) {
       parts.push("        <div class=\"rounded-lg border border-gray-200 p-4\">\n");
-      if (m.photo) parts.push("          <img src=\"", escapeHtml(m.photo), "\" alt=\"\" class=\"mb-2 h-24 w-24 rounded-full object-cover\" />\n");
+      const teamDim = getRecommendedImageDimension("team");
+      if (m.photo) parts.push("          <div class=\"mb-2 h-24 w-24 shrink-0 overflow-hidden rounded-full bg-gray-100\"><img src=\"", escapeHtml(m.photo), "\" alt=\"\" class=\"h-full w-full object-cover\" width=\"", String(teamDim.width), "\" height=\"", String(teamDim.height), "\" /></div>\n");
       parts.push("          <p class=\"font-medium text-gray-900\">", escapeHtml(m.name), "</p>\n");
       if (m.role) parts.push("          <p class=\"text-sm text-gray-600\">", escapeHtml(m.role), "</p>\n");
       if (m.bio) parts.push("          <p class=\"mt-1 text-sm text-gray-700\">", escapeHtml(m.bio), "</p>\n");
@@ -713,10 +764,11 @@ function renderPublishedTemplate(view: PublishedView): string {
     parts.push("      </div>\n    </section>\n");
   }
   if (hasCertifications && certificationsList.length > 0) {
-    parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", certificationsSectionTitle, "</h2>\n      <div class=\"mt-2 flex flex-wrap gap-4\">\n");
+    parts.push("    <section id=\"certifications\" class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", certificationsSectionTitle, "</h2>\n      <div class=\"mt-2 flex flex-wrap gap-4\">\n");
     for (const c of certificationsList) {
       parts.push("        <div class=\"flex flex-col items-start rounded-lg border border-gray-200 p-4\">\n");
-      if (c.image) parts.push("          <img src=\"", escapeHtml(c.image), "\" alt=\"\" class=\"h-16 w-auto object-contain\" />\n");
+      const certDim = getRecommendedImageDimension("certification");
+      if (c.image) parts.push("          <img src=\"", escapeHtml(c.image), "\" alt=\"\" class=\"h-16 max-h-16 w-auto object-contain\" width=\"", String(certDim.width), "\" height=\"", String(certDim.height), "\" />\n");
       if (c.title) parts.push("          <p class=\"mt-2 text-sm font-medium text-gray-900\">", escapeHtml(c.title), "</p>\n");
       parts.push("        </div>\n");
     }
@@ -739,7 +791,7 @@ function renderPublishedTemplate(view: PublishedView): string {
     if (newsletterUrl) parts.push("      <p class=\"mt-2\"><a href=\"", escapeHtml(newsletterUrl), "\" class=\"text-blue-600 underline hover:text-blue-800\" target=\"_blank\" rel=\"noopener noreferrer\">Sign up</a></p>\n");
     parts.push("    </section>\n");
   }
-  parts.push("    <section class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", contactFormSectionTitle, "</h2>\n");
+  parts.push("    <section id=\"contact-form\" class=\"mt-6\">\n      <h2 class=\"text-lg font-medium\">", contactFormSectionTitle, "</h2>\n");
   if (contactFormSuccessMessage) parts.push("      <p class=\"mt-1 text-sm text-gray-600\">", escapeHtml(contactFormSuccessMessage), "</p>\n");
   parts.push("      <form method=\"post\" action=\"", contactFormAction, "\" class=\"mt-2 flex flex-col gap-3 max-w-md\">\n");
   if (contactFormSubject) parts.push("        <input type=\"hidden\" name=\"subject\" value=\"", escapeHtml(contactFormSubject), "\" />\n");
@@ -747,11 +799,21 @@ function renderPublishedTemplate(view: PublishedView): string {
   parts.push("        <div style=\"position:absolute;left:-9999px;width:1px;height:1px;\" aria-hidden=\"true\"><label for=\"hp-website\">Leave blank</label><input type=\"text\" id=\"hp-website\" name=\"website\" tabindex=\"-1\" autocomplete=\"off\" /></div>\n");
   parts.push("        <button type=\"submit\" class=\"bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800\">Send</button>\n      </form>\n    </section>\n");
   if (showBackToTop) parts.push("    <p class=\"mt-6 text-center\"><a href=\"#\" class=\"text-sm text-gray-500 hover:text-gray-700\">Back to top</a></p>\n");
-  parts.push("    <footer class=\"mt-8 pt-4 border-t border-gray-200 text-sm text-gray-500\">\n");
-  if (footerText) parts.push("      <p>", escapeHtml(footerText), "</p>\n");
-  if (customDomainDisplay) parts.push("      <p>", escapeHtml(customDomainDisplay), "</p>\n");
-  if (legalName) parts.push("      <p>Legal name: ", escapeHtml(legalName), "</p>\n");
-  parts.push("    </footer>\n");
+  const currentYear = new Date().getFullYear();
+  parts.push("    <footer class=\"mt-12 border-t border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600\">\n      <div class=\"max-w-4xl mx-auto\">\n");
+  if (hasSocialLinks && socialLinks.length > 0) {
+    parts.push("        <ul class=\"flex flex-wrap gap-2 mb-4\" role=\"list\">\n");
+    for (const link of socialLinks) {
+      const kind = (link.kind ?? "other") as Parameters<typeof socialIconSvgInnerHtml>[0];
+      const svgInner = socialIconSvgInnerHtml(kind);
+      parts.push("          <li><a href=\"", escapeHtml(link.url), "\" target=\"_blank\" rel=\"noopener noreferrer\" aria-label=\"", escapeHtml(link.label), "\" class=\"inline-flex p-2 text-gray-600 hover:text-gray-900\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\" class=\"h-6 w-6\">", svgInner, "</svg></a></li>\n");
+    }
+    parts.push("        </ul>\n");
+  }
+  if (footerText) parts.push("        <p class=\"mb-2\">", escapeHtml(footerText), "</p>\n");
+  if (customDomainDisplay) parts.push("        <p class=\"mb-2\">", escapeHtml(customDomainDisplay), "</p>\n");
+  if (legalName) parts.push("        <p class=\"mb-2\">Legal name: ", escapeHtml(legalName), "</p>\n");
+  parts.push("        <p class=\"mt-4 pt-4 border-t border-gray-200 text-gray-500\">© ", String(currentYear), " ", businessName || "Site", ". All rights reserved.</p>\n      </div>\n    </footer>\n");
   parts.push("  </div>\n</body>\n</html>\n");
   return parts.join("");
 }

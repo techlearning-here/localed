@@ -4,6 +4,16 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { LocaledSite } from "@/lib/types/site";
 
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString(undefined, { dateStyle: "short" });
+  } catch {
+    return "—";
+  }
+}
+
 export default function AdminSitesPage() {
   const [sites, setSites] = useState<LocaledSite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,6 +126,9 @@ export default function AdminSitesPage() {
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Name</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Owner</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Plan</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Created</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Updated</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Actions</th>
             </tr>
           </thead>
@@ -140,6 +153,13 @@ export default function AdminSitesPage() {
                     ) : (
                       <span className="text-gray-500">Draft</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700 capitalize">{site.plan ?? "—"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap" title={site.created_at}>
+                    {formatDate(site.created_at)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap" title={site.updated_at}>
+                    {formatDate(site.updated_at)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link

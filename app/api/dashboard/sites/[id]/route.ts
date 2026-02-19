@@ -127,6 +127,14 @@ export async function PATCH(
       if (fromDraft !== undefined) updates.country = fromDraft === "" ? null : fromDraft;
     }
     updates.draft_content = merged;
+    if (body.assistant_prefilled_fields === undefined) {
+      const primaryLocale = (updates.languages as string[])?.[0] ?? site.languages?.[0] ?? "en";
+      const localeContent = merged[primaryLocale] ?? merged.en;
+      const prefilled = localeContent && typeof localeContent === "object" && Array.isArray((localeContent as Record<string, unknown>)._assistantPrefilledFields)
+        ? ((localeContent as Record<string, unknown>)._assistantPrefilledFields as unknown[]).filter((k): k is string => typeof k === "string")
+        : [];
+      updates.assistant_prefilled_fields = prefilled;
+    }
   } else if (body.country !== undefined && body.languages === undefined) {
     const countryValue = body.country === "" ? undefined : body.country;
     const merged: Record<string, Record<string, unknown>> = {
@@ -145,6 +153,11 @@ export async function PATCH(
   }
   if (typeof body.archived === "boolean") {
     updates.archived_at = body.archived ? new Date().toISOString() : null;
+  }
+  if (body.assistant_prefilled_fields !== undefined) {
+    const raw = body.assistant_prefilled_fields;
+    const arr = Array.isArray(raw) ? raw.filter((k): k is string => typeof k === "string") : [];
+    updates.assistant_prefilled_fields = arr;
   }
   if (body.slug !== undefined) {
     if (site.published_at) {
